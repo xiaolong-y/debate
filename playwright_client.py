@@ -80,14 +80,24 @@ class LLMClient:
             user_data_dir=str(self.browser_data_dir),
             headless=self.headless,
             viewport={"width": 1280, "height": 900},
-            # Stealth settings to avoid automation detection
+            # Enhanced stealth settings to avoid automation detection
             args=[
                 "--disable-blink-features=AutomationControlled",
                 "--disable-features=IsolateOrigins,site-per-process",
-                "--disable-web-security",
+                "--disable-dev-shm-usage",
+                "--no-first-run",
+                "--no-default-browser-check",
+                "--disable-infobars",
+                "--window-size=1280,900",
+                "--start-maximized",
             ],
-            ignore_default_args=["--enable-automation"],
-            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            ignore_default_args=["--enable-automation", "--enable-blink-features=AutomationControlled"],
+            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            locale="en-US",
+            timezone_id="America/New_York",
+            color_scheme="light",
+            # Permissions that a real browser would have
+            permissions=["geolocation", "notifications"],
         )
 
         # Get or create page
@@ -96,10 +106,60 @@ class LLMClient:
         else:
             self._page = await self._context.new_page()
 
-        # Additional stealth
+        # Comprehensive stealth script to mask automation
         await self._page.add_init_script("""
+            // Remove webdriver property
             Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-            window.chrome = { runtime: {} };
+
+            // Add chrome object
+            window.chrome = {
+                runtime: {},
+                loadTimes: function() {},
+                csi: function() {},
+                app: {}
+            };
+
+            // Fix permissions
+            const originalQuery = window.navigator.permissions.query;
+            window.navigator.permissions.query = (parameters) => (
+                parameters.name === 'notifications' ?
+                    Promise.resolve({ state: Notification.permission }) :
+                    originalQuery(parameters)
+            );
+
+            // Fix plugins to look like real browser
+            Object.defineProperty(navigator, 'plugins', {
+                get: () => [
+                    { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer' },
+                    { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai' },
+                    { name: 'Native Client', filename: 'internal-nacl-plugin' }
+                ]
+            });
+
+            // Fix languages
+            Object.defineProperty(navigator, 'languages', {
+                get: () => ['en-US', 'en']
+            });
+
+            // Fix platform
+            Object.defineProperty(navigator, 'platform', {
+                get: () => 'MacIntel'
+            });
+
+            // Fix hardwareConcurrency
+            Object.defineProperty(navigator, 'hardwareConcurrency', {
+                get: () => 8
+            });
+
+            // Fix deviceMemory
+            Object.defineProperty(navigator, 'deviceMemory', {
+                get: () => 8
+            });
+
+            // Remove automation-related properties from window
+            delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
+            delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;
+            delete window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol;
         """)
 
     async def stop(self):
