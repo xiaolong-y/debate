@@ -229,15 +229,27 @@ class LLMClient:
             raise RuntimeError("Client not started")
 
         await self._page.goto(self.selectors.url)
-        print(f"\n[{self.llm_name.upper()}] Please log in manually in the browser window.")
-        print("Press Enter here when done...")
+        print(f"\n{'='*60}")
+        print(f"[{self.llm_name.upper()}] MANUAL LOGIN REQUIRED")
+        print(f"{'='*60}")
+        print(f"1. Complete any CAPTCHA/human verification in the browser")
+        print(f"2. Log in with your credentials")
+        print(f"3. Make sure you're on the main chat page")
+        print(f"4. Press Enter here when fully logged in...")
+        print(f"{'='*60}")
         await asyncio.get_event_loop().run_in_executor(None, input)
+
+        # Give extra time for any redirects after login
+        await asyncio.sleep(2)
 
         # Verify login worked
         if await self.is_logged_in():
-            print(f"[{self.llm_name.upper()}] Login successful!")
+            print(f"[{self.llm_name.upper()}] ✓ Login successful! Session saved.")
         else:
-            print(f"[{self.llm_name.upper()}] Warning: Could not verify login.")
+            print(f"[{self.llm_name.upper()}] ⚠ Could not verify login. Try navigating to the chat page and press Enter again...")
+            await asyncio.get_event_loop().run_in_executor(None, input)
+            if await self.is_logged_in():
+                print(f"[{self.llm_name.upper()}] ✓ Login verified!")
 
     async def send_prompt(
         self,
