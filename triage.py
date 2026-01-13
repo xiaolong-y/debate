@@ -3,10 +3,12 @@ Triage module for synthesizing and arbitrating LLM responses.
 Combines both operations in a single pass for token efficiency.
 """
 
+from __future__ import annotations
+
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
-from typing import Callable
+from typing import Callable, Optional, Dict
 
 # Import both client types for flexibility
 try:

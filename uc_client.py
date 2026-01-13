@@ -3,11 +3,13 @@ LLM client using undetected-chromedriver to bypass Cloudflare.
 This replaces playwright_client.py for sites with bot detection.
 """
 
+from __future__ import annotations
+
 import asyncio
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Optional, Dict
 
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
