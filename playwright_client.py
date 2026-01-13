@@ -1,10 +1,13 @@
 """
 Playwright-based browser automation for LLM web interfaces.
-Uses persistent contexts to maintain login sessions.
+Uses your actual Chrome browser profile to avoid CAPTCHA issues.
 """
 
 import asyncio
+import os
 import random
+import subprocess
+import sys
 from pathlib import Path
 from typing import AsyncIterator, Callable
 
@@ -18,8 +21,22 @@ from llm_selectors import (
     LLMSelectors,
 )
 
-# Default browser data directory
+# Use actual Chrome profile on macOS
+CHROME_USER_DATA = Path.home() / "Library" / "Application Support" / "Google" / "Chrome"
+# Fallback to separate profile if Chrome profile doesn't exist
 BROWSER_DATA_DIR = Path.home() / ".debate" / "browser-data"
+
+def get_chrome_path():
+    """Get the path to Chrome executable."""
+    if sys.platform == "darwin":
+        chrome_paths = [
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            "/Applications/Chrome.app/Contents/MacOS/Chrome",
+        ]
+        for path in chrome_paths:
+            if os.path.exists(path):
+                return path
+    return None
 
 # Retry configuration
 MAX_RETRIES = 3
@@ -71,33 +88,17 @@ class LLMClient:
         await self.stop()
 
     async def start(self):
-        """Start browser with persistent context."""
+        """Start browser - uses Firefox which bypasses Cloudflare better."""
         self.browser_data_dir.mkdir(parents=True, exist_ok=True)
         self._playwright = await async_playwright().start()
 
-        # Use persistent context to maintain login sessions
-        self._context = await self._playwright.chromium.launch_persistent_context(
+        # Use Firefox - it handles Cloudflare Turnstile much better than Chromium
+        self._context = await self._playwright.firefox.launch_persistent_context(
             user_data_dir=str(self.browser_data_dir),
             headless=self.headless,
             viewport={"width": 1280, "height": 900},
-            # Enhanced stealth settings to avoid automation detection
-            args=[
-                "--disable-blink-features=AutomationControlled",
-                "--disable-features=IsolateOrigins,site-per-process",
-                "--disable-dev-shm-usage",
-                "--no-first-run",
-                "--no-default-browser-check",
-                "--disable-infobars",
-                "--window-size=1280,900",
-                "--start-maximized",
-            ],
-            ignore_default_args=["--enable-automation", "--enable-blink-features=AutomationControlled"],
-            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
             locale="en-US",
             timezone_id="America/New_York",
-            color_scheme="light",
-            # Permissions that a real browser would have
-            permissions=["geolocation", "notifications"],
         )
 
         # Get or create page
@@ -105,62 +106,6 @@ class LLMClient:
             self._page = self._context.pages[0]
         else:
             self._page = await self._context.new_page()
-
-        # Comprehensive stealth script to mask automation
-        await self._page.add_init_script("""
-            // Remove webdriver property
-            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-
-            // Add chrome object
-            window.chrome = {
-                runtime: {},
-                loadTimes: function() {},
-                csi: function() {},
-                app: {}
-            };
-
-            // Fix permissions
-            const originalQuery = window.navigator.permissions.query;
-            window.navigator.permissions.query = (parameters) => (
-                parameters.name === 'notifications' ?
-                    Promise.resolve({ state: Notification.permission }) :
-                    originalQuery(parameters)
-            );
-
-            // Fix plugins to look like real browser
-            Object.defineProperty(navigator, 'plugins', {
-                get: () => [
-                    { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer' },
-                    { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai' },
-                    { name: 'Native Client', filename: 'internal-nacl-plugin' }
-                ]
-            });
-
-            // Fix languages
-            Object.defineProperty(navigator, 'languages', {
-                get: () => ['en-US', 'en']
-            });
-
-            // Fix platform
-            Object.defineProperty(navigator, 'platform', {
-                get: () => 'MacIntel'
-            });
-
-            // Fix hardwareConcurrency
-            Object.defineProperty(navigator, 'hardwareConcurrency', {
-                get: () => 8
-            });
-
-            // Fix deviceMemory
-            Object.defineProperty(navigator, 'deviceMemory', {
-                get: () => 8
-            });
-
-            // Remove automation-related properties from window
-            delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
-            delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;
-            delete window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol;
-        """)
 
     async def stop(self):
         """Close browser context."""
