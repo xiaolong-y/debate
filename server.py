@@ -148,13 +148,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     await handler.send_error("system", "Empty prompt")
                     continue
 
-                mode_str = message.get("mode", "synthesis")
-                try:
-                    mode = TriageMode(mode_str)
-                except ValueError:
-                    mode = TriageMode.SYNTHESIS
-
-                await run_debate_session(handler, prompt, mode)
+                # Always use unified mode (combines synthesis + arbitration)
+                await run_debate_session(handler, prompt, TriageMode.UNIFIED)
 
             elif action == "check_auth":
                 await check_auth_status(handler)
@@ -227,8 +222,8 @@ async def run_debate_session(
             responses[name] = response
             await handler.send_complete(name, response)
 
-        # Run triage
-        await handler.send_status(f"Running {mode.value}...")
+        # Run unified triage (synthesis + arbitration in one pass)
+        await handler.send_status("Running unified analysis...")
 
         # Use Claude client for triage (reuse existing session)
         claude_client = orchestrator.clients.get("claude")

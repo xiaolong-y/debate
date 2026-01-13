@@ -26,11 +26,6 @@ console = Console()
 @app.command()
 def main(
     prompt: str = typer.Argument(None, help="The prompt to send to all LLMs"),
-    mode: str = typer.Option(
-        "synthesis",
-        "--mode", "-m",
-        help="Triage mode: synthesis or arbitration",
-    ),
     setup: bool = typer.Option(
         False,
         "--setup",
@@ -53,12 +48,15 @@ def main(
     ),
 ):
     """
-    Query Claude, ChatGPT, and Gemini in parallel and synthesize their responses.
+    Query Claude, ChatGPT, and Gemini in parallel with unified analysis.
+
+    The unified analysis combines synthesis (best ideas merged) and arbitration
+    (disagreements identified) in a single pass for token efficiency.
 
     Examples:
         debate "Is Rust better than Go for CLI tools?"
-        debate --mode arbitration "What year was Python released?"
         debate --setup  # One-time auth setup
+        debate --check  # Verify authentication
     """
     if setup:
         asyncio.run(run_setup())
@@ -75,7 +73,7 @@ def main(
         return
 
     # Start server and open browser with prompt
-    start_server_and_browser(port, no_browser, prompt, mode)
+    start_server_and_browser(port, no_browser, prompt)
 
 
 async def run_setup():
@@ -123,7 +121,6 @@ def start_server_and_browser(
     port: int,
     no_browser: bool,
     prompt: str = None,
-    mode: str = "synthesis",
 ):
     """Start the server and optionally open browser."""
     import uvicorn
@@ -132,7 +129,7 @@ def start_server_and_browser(
     # Build URL
     url = f"http://127.0.0.1:{port}/"
     if prompt:
-        url += f"?prompt={quote(prompt)}&mode={mode}"
+        url += f"?prompt={quote(prompt)}"
 
     console.print(f"[cyan]Starting server on port {port}...[/cyan]")
 
