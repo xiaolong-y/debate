@@ -46,6 +46,11 @@ def main(
         "--no-browser",
         help="Don't open browser automatically",
     ),
+    playwright: bool = typer.Option(
+        False,
+        "--playwright", "--pw",
+        help="Use Playwright with stealth mode (instead of undetected-chromedriver)",
+    ),
 ):
     """
     Query Claude, ChatGPT, and Gemini in parallel with unified analysis.
@@ -57,65 +62,105 @@ def main(
         debate "Is Rust better than Go for CLI tools?"
         debate --setup  # One-time auth setup
         debate --check  # Verify authentication
+        debate --playwright "prompt"  # Use Playwright stealth mode
     """
+    import os
+
+    # Set environment variable for server to use correct backend
+    if playwright:
+        os.environ["DEBATE_USE_PLAYWRIGHT"] = "1"
+
     if setup:
-        asyncio.run(run_setup())
+        asyncio.run(run_setup(playwright))
         return
 
     if check:
-        asyncio.run(run_check())
+        asyncio.run(run_check(playwright))
         return
 
     if not prompt:
         # No prompt provided, just start the server
-        console.print("[cyan]Starting debate server...[/cyan]")
+        backend = "Playwright (stealth)" if playwright else "undetected-chromedriver"
+        console.print(f"[cyan]Starting debate server with {backend}...[/cyan]")
         start_server_and_browser(port, no_browser)
         return
 
     # Start server and open browser with prompt
+    backend = "Playwright (stealth)" if playwright else "undetected-chromedriver"
+    console.print(f"[cyan]Using {backend} backend...[/cyan]")
     start_server_and_browser(port, no_browser, prompt)
 
 
-async def run_setup():
-    """Interactive auth setup for all LLMs using undetected-chromedriver."""
-    from uc_client import DebateOrchestrator
+async def run_setup(use_playwright: bool = False):
+    """Interactive auth setup for all LLMs."""
+    if use_playwright:
+        from playwright_client import DebateOrchestrator
 
-    console.print(Panel(
-        "[bold]LLM Debate Auth Setup[/bold]\n\n"
-        "Using undetected-chromedriver to bypass Cloudflare.\n\n"
-        "This will open browser windows for you to log in to:\n"
-        "  1. Claude (claude.ai)\n"
-        "  2. ChatGPT (chatgpt.com)\n"
-        "  3. Gemini (gemini.google.com)\n\n"
-        "Your login sessions will be saved for future use.",
-        title="Setup",
-        border_style="cyan",
-    ))
+        console.print(Panel(
+            "[bold]LLM Debate Auth Setup (Playwright)[/bold]\n\n"
+            "Using Playwright with stealth mode.\n\n"
+            "This will open browser windows for you to log in to:\n"
+            "  1. Claude (claude.ai)\n"
+            "  2. ChatGPT (chatgpt.com)\n"
+            "  3. Gemini (gemini.google.com)\n\n"
+            "Your login sessions will be saved for future use.",
+            title="Setup",
+            border_style="cyan",
+        ))
 
-    with DebateOrchestrator(headless=False) as orchestrator:
-        orchestrator.setup_all_auth()
+        orchestrator = DebateOrchestrator(headless=False)
+        await orchestrator.start()
+        await orchestrator.setup_all_auth()
+        await orchestrator.stop()
+    else:
+        from uc_client import DebateOrchestrator
+
+        console.print(Panel(
+            "[bold]LLM Debate Auth Setup[/bold]\n\n"
+            "Using undetected-chromedriver to bypass Cloudflare.\n\n"
+            "This will open browser windows for you to log in to:\n"
+            "  1. Claude (claude.ai)\n"
+            "  2. ChatGPT (chatgpt.com)\n"
+            "  3. Gemini (gemini.google.com)\n\n"
+            "Your login sessions will be saved for future use.",
+            title="Setup",
+            border_style="cyan",
+        ))
+
+        with DebateOrchestrator(headless=False) as orchestrator:
+            orchestrator.setup_all_auth()
 
     console.print("\n[green]Setup complete![/green] You can now run debates.")
 
 
-async def run_check():
+async def run_check(use_playwright: bool = False):
     """Check authentication status."""
-    from uc_client import DebateOrchestrator
+    backend = "Playwright (stealth)" if use_playwright else "undetected-chromedriver"
+    console.print(f"[cyan]Checking authentication status ({backend})...[/cyan]\n")
 
-    console.print("[cyan]Checking authentication status...[/cyan]\n")
+    if use_playwright:
+        from playwright_client import DebateOrchestrator
 
-    with DebateOrchestrator(headless=True) as orchestrator:
-        auth_status = orchestrator.check_auth()
+        orchestrator = DebateOrchestrator(headless=True)
+        await orchestrator.start()
+        auth_status = await orchestrator.check_auth()
+        await orchestrator.stop()
+    else:
+        from uc_client import DebateOrchestrator
 
-        for name, logged_in in auth_status.items():
-            if logged_in:
-                console.print(f"  [green]✓[/green] {name}: authenticated")
-            else:
-                console.print(f"  [red]✗[/red] {name}: not authenticated")
+        with DebateOrchestrator(headless=True) as orchestrator:
+            auth_status = orchestrator.check_auth()
 
-        all_ok = all(auth_status.values())
-        if not all_ok:
-            console.print("\n[yellow]Run 'python setup_auth.py' or 'debate --setup' to authenticate.[/yellow]")
+    for name, logged_in in auth_status.items():
+        if logged_in:
+            console.print(f"  [green]✓[/green] {name}: authenticated")
+        else:
+            console.print(f"  [red]✗[/red] {name}: not authenticated")
+
+    all_ok = all(auth_status.values())
+    if not all_ok:
+        setup_cmd = "debate --setup --playwright" if use_playwright else "debate --setup"
+        console.print(f"\n[yellow]Run '{setup_cmd}' to authenticate.[/yellow]")
 
 
 def start_server_and_browser(

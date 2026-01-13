@@ -5,7 +5,9 @@ Centralized here for easy updates when UIs change.
 Each selector includes primary and fallback options to handle UI changes.
 """
 
+from __future__ import annotations
 from dataclasses import dataclass, field
+from typing import Optional, List
 
 
 @dataclass
@@ -16,12 +18,12 @@ class LLMSelectors:
     input_selector: str
     submit_selector: str
     response_selector: str
-    stop_selector: str | None = None
-    response_complete_indicator: str | None = None
+    stop_selector: Optional[str] = None
+    response_complete_indicator: Optional[str] = None
     # Fallback selectors for when UI changes
-    input_fallbacks: list[str] = field(default_factory=list)
-    submit_fallbacks: list[str] = field(default_factory=list)
-    response_fallbacks: list[str] = field(default_factory=list)
+    input_fallbacks: List[str] = field(default_factory=list)
+    submit_fallbacks: List[str] = field(default_factory=list)
+    response_fallbacks: List[str] = field(default_factory=list)
 
 
 SELECTORS = {
