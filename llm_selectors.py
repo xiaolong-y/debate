@@ -57,25 +57,34 @@ SELECTORS = {
     "chatgpt": LLMSelectors(
         url="https://chatgpt.com",
         new_chat_url="https://chatgpt.com/",
-        input_selector="#prompt-textarea",
+        # ChatGPT uses contenteditable div now, not textarea
+        input_selector="div#prompt-textarea[contenteditable='true']",
         submit_selector="button[data-testid='send-button']",
         response_selector="div[data-message-author-role='assistant']",
         stop_selector="button[aria-label='Stop generating']",
         response_complete_indicator=None,  # Check for absence of streaming indicator
         input_fallbacks=[
+            "#prompt-textarea",
+            "div[contenteditable='true'][id='prompt-textarea']",
+            "[contenteditable='true'][data-placeholder]",
             "textarea[placeholder*='message']",
             "[contenteditable='true']",
-            "textarea#prompt-textarea",
+            "div[role='textbox']",
         ],
         submit_fallbacks=[
             "button[aria-label='Send prompt']",
             "[data-testid='send-button']",
-            "button:has(svg[class*='send'])",
+            "button[aria-label='Send message']",
+            "button:has(svg path[d*='M15.192'])",  # Send icon path
+            "form button[type='submit']",
+            "button.send-button",
         ],
         response_fallbacks=[
             "[data-message-author-role='assistant']",
             ".markdown.prose",
             "[class*='agent-turn']",
+            "div.agent-turn",
+            "[data-testid='conversation-turn'] [data-message-author-role='assistant']",
         ],
     ),
     "gemini": LLMSelectors(

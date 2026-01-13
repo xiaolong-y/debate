@@ -257,15 +257,137 @@
     line-height: 1.7;
   }
 
-  .pane-content.empty::before {
+  .pane-content.empty .response-content:empty::before {
     content: "Waiting for response...";
     color: var(--muted);
     font-style: italic;
   }
 
-  /* Thinking blocks */
+  /* Hide empty message when thinking indicator is active */
+  .pane-content .thinking-indicator.active ~ .response-content:empty::before {
+    display: none;
+  }
+
+  /* Active Thinking Indicator (Claude-style) */
+  .thinking-indicator {
+    display: none;
+    margin-bottom: 16px;
+    padding: 16px;
+    border-radius: var(--radius);
+    background: linear-gradient(135deg, var(--thinking-bg) 0%, var(--panel) 100%);
+    border: 1px solid var(--line);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .thinking-indicator.active {
+    display: block;
+  }
+
+  .thinking-indicator::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 200%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(94, 64, 157, 0.08) 25%,
+      rgba(94, 64, 157, 0.15) 50%,
+      rgba(94, 64, 157, 0.08) 75%,
+      transparent 100%
+    );
+    animation: shimmer 2s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(50%); }
+  }
+
+  .thinking-indicator-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9em;
+    font-weight: 500;
+    color: var(--purple);
+    font-family: 'IBM Plex Mono', monospace;
+    position: relative;
+    z-index: 1;
+  }
+
+  .thinking-sparkles {
+    display: flex;
+    gap: 3px;
+    font-size: 14px;
+  }
+
+  @keyframes sparkle {
+    0%, 100% { opacity: 0.3; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.1); }
+  }
+
+  .thinking-sparkles span {
+    animation: sparkle 1.2s ease-in-out infinite;
+    color: var(--purple);
+  }
+
+  .thinking-sparkles span:nth-child(2) { animation-delay: 0.15s; }
+  .thinking-sparkles span:nth-child(3) { animation-delay: 0.3s; }
+
+  .thinking-dots {
+    display: flex;
+    gap: 4px;
+    margin-left: 4px;
+  }
+
+  .thinking-dots span {
+    width: 6px;
+    height: 6px;
+    background: var(--purple);
+    border-radius: 50%;
+    animation: dotPulse 1.4s ease-in-out infinite;
+  }
+
+  .thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes dotPulse {
+    0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1); }
+  }
+
+  .thinking-preview {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    font-size: 0.85em;
+    color: var(--muted);
+    line-height: 1.5;
+    max-height: 120px;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .thinking-preview::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background: linear-gradient(transparent, var(--thinking-bg));
+    pointer-events: none;
+  }
+
+  /* Completed Thinking Block (collapsible) */
   .thinking-block {
-    margin: 12px 0;
+    margin: 0 0 16px 0;
     border-radius: var(--radius);
     background: var(--thinking-bg);
     border: 1px solid var(--line);
@@ -276,7 +398,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 14px;
+    padding: 12px 14px;
     cursor: pointer;
     user-select: none;
     font-size: 0.85em;
@@ -286,25 +408,42 @@
   }
 
   .thinking-header:hover {
-    background: rgba(0, 0, 0, 0.03);
+    background: rgba(94, 64, 157, 0.05);
+  }
+
+  .thinking-header-text {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
   .thinking-icon {
     width: 16px;
     height: 16px;
     transition: transform 0.3s ease;
+    color: var(--purple);
   }
 
   .thinking-block.collapsed .thinking-icon {
     transform: rotate(-90deg);
   }
 
+  .thinking-label {
+    color: var(--purple);
+    font-weight: 500;
+  }
+
+  .thinking-duration {
+    color: var(--muted);
+    font-size: 0.9em;
+  }
+
   .thinking-content {
     padding: 0 14px 14px;
-    font-size: 0.9em;
+    font-size: 0.88em;
     color: var(--muted);
     line-height: 1.6;
-    max-height: 300px;
+    max-height: 400px;
     overflow-y: auto;
     transition: max-height 0.3s ease, padding 0.3s ease, opacity 0.3s ease;
   }
@@ -316,18 +455,10 @@
     opacity: 0;
   }
 
-  /* Sparkle animation for thinking */
-  @keyframes sparkle {
-    0%, 100% { opacity: 0.3; }
-    50% { opacity: 1; }
+  /* Response content area */
+  .response-content {
+    /* Main response after thinking */
   }
-
-  .thinking-header .sparkle {
-    animation: sparkle 1.5s ease-in-out infinite;
-  }
-
-  .thinking-header .sparkle:nth-child(2) { animation-delay: 0.2s; }
-  .thinking-header .sparkle:nth-child(3) { animation-delay: 0.4s; }
 
   /* Markdown styling */
   .pane-content h1, .pane-content h2, .pane-content h3 {
@@ -497,10 +628,14 @@
     line-height: 1.7;
   }
 
-  .triage-content.empty::before {
+  .triage-content.empty .response-content:empty::before {
     content: "Unified analysis will appear here after all models respond...";
     color: var(--muted);
     font-style: italic;
+  }
+
+  .triage-content .thinking-indicator.active ~ .response-content:empty::before {
+    display: none;
   }
 
   .triage-actions {
@@ -579,7 +714,17 @@
             <button class="copy-btn" data-copy="claude">Copy</button>
           </div>
         </div>
-        <div class="pane-content empty" id="content-claude"></div>
+        <div class="pane-content empty" id="content-claude">
+          <div class="thinking-indicator" id="thinking-claude">
+            <div class="thinking-indicator-header">
+              <div class="thinking-sparkles"><span>✦</span><span>✦</span><span>✦</span></div>
+              <span>Thinking</span>
+              <div class="thinking-dots"><span></span><span></span><span></span></div>
+            </div>
+            <div class="thinking-preview" id="thinking-preview-claude"></div>
+          </div>
+          <div class="response-content" id="response-claude"></div>
+        </div>
       </div>
 
       <div class="pane" data-source="chatgpt" id="pane-chatgpt">
@@ -590,7 +735,17 @@
             <button class="copy-btn" data-copy="chatgpt">Copy</button>
           </div>
         </div>
-        <div class="pane-content empty" id="content-chatgpt"></div>
+        <div class="pane-content empty" id="content-chatgpt">
+          <div class="thinking-indicator" id="thinking-chatgpt">
+            <div class="thinking-indicator-header">
+              <div class="thinking-sparkles"><span>✦</span><span>✦</span><span>✦</span></div>
+              <span>Thinking</span>
+              <div class="thinking-dots"><span></span><span></span><span></span></div>
+            </div>
+            <div class="thinking-preview" id="thinking-preview-chatgpt"></div>
+          </div>
+          <div class="response-content" id="response-chatgpt"></div>
+        </div>
       </div>
 
       <div class="pane" data-source="gemini" id="pane-gemini">
@@ -601,7 +756,17 @@
             <button class="copy-btn" data-copy="gemini">Copy</button>
           </div>
         </div>
-        <div class="pane-content empty" id="content-gemini"></div>
+        <div class="pane-content empty" id="content-gemini">
+          <div class="thinking-indicator" id="thinking-gemini">
+            <div class="thinking-indicator-header">
+              <div class="thinking-sparkles"><span>✦</span><span>✦</span><span>✦</span></div>
+              <span>Thinking</span>
+              <div class="thinking-dots"><span></span><span></span><span></span></div>
+            </div>
+            <div class="thinking-preview" id="thinking-preview-gemini"></div>
+          </div>
+          <div class="response-content" id="response-gemini"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -628,7 +793,17 @@
         </button>
       </div>
     </div>
-    <div class="triage-content empty" id="content-synthesis"></div>
+    <div class="triage-content empty" id="content-synthesis">
+      <div class="thinking-indicator" id="thinking-synthesis">
+        <div class="thinking-indicator-header">
+          <div class="thinking-sparkles"><span>✦</span><span>✦</span><span>✦</span></div>
+          <span>Analyzing responses</span>
+          <div class="thinking-dots"><span></span><span></span><span></span></div>
+        </div>
+        <div class="thinking-preview" id="thinking-preview-synthesis"></div>
+      </div>
+      <div class="response-content" id="response-synthesis"></div>
+    </div>
     <div class="triage-actions">
       <button class="copy-btn" data-copy="synthesis">Copy Analysis</button>
     </div>
@@ -646,6 +821,18 @@
       chatgpt: '',
       gemini: '',
       synthesis: ''
+    },
+    thinkingStartTime: {
+      claude: null,
+      chatgpt: null,
+      gemini: null,
+      synthesis: null
+    },
+    isStreaming: {
+      claude: false,
+      chatgpt: false,
+      gemini: false,
+      synthesis: false
     }
   };
 
@@ -716,6 +903,13 @@
   function handleMessage(msg) {
     switch (msg.type) {
       case 'chunk':
+        // Start thinking timer on first chunk
+        if (!state.isStreaming[msg.source]) {
+          state.isStreaming[msg.source] = true;
+          state.thinkingStartTime[msg.source] = Date.now();
+          showThinkingIndicator(msg.source, true);
+        }
+
         appendContent(msg.source, msg.content);
         setSourceStatus(msg.source, 'streaming');
 
@@ -726,7 +920,14 @@
         break;
 
       case 'complete':
-        setContent(msg.source, msg.content);
+        // Calculate thinking duration
+        const duration = state.thinkingStartTime[msg.source]
+          ? Math.round((Date.now() - state.thinkingStartTime[msg.source]) / 1000)
+          : 0;
+
+        state.isStreaming[msg.source] = false;
+        showThinkingIndicator(msg.source, false);
+        setContent(msg.source, msg.content, duration);
         setSourceStatus(msg.source, 'complete');
 
         if (msg.source === 'synthesis') {
@@ -745,6 +946,8 @@
         break;
 
       case 'error':
+        state.isStreaming[msg.source] = false;
+        showThinkingIndicator(msg.source, false);
         setSourceStatus(msg.source, 'error');
         if (['auth', 'system', 'debate'].includes(msg.source)) {
           setStatus(msg.message, 'error');
@@ -756,6 +959,25 @@
       case 'auth_status':
         // Auth status handled silently
         break;
+    }
+  }
+
+  // Show/hide thinking indicator
+  function showThinkingIndicator(source, show) {
+    const indicator = document.getElementById(`thinking-${source}`);
+    if (indicator) {
+      indicator.classList.toggle('active', show);
+    }
+  }
+
+  // Update thinking preview during streaming
+  function updateThinkingPreview(source) {
+    const preview = document.getElementById(`thinking-preview-${source}`);
+    if (preview && state.responses[source]) {
+      // Show last ~200 chars of response as preview
+      const text = state.responses[source];
+      const previewText = text.length > 200 ? '...' + text.slice(-200) : text;
+      preview.textContent = previewText;
     }
   }
 
@@ -795,99 +1017,70 @@
 
   function appendContent(source, chunk) {
     state.responses[source] += chunk;
-    renderContent(source);
+    // Update thinking preview during streaming
+    updateThinkingPreview(source);
   }
 
-  function setContent(source, content) {
+  function setContent(source, content, duration = 0) {
     state.responses[source] = content;
-    renderContent(source);
+    renderFinalContent(source, duration);
   }
 
-  // Parse thinking blocks from content
-  function parseThinkingBlocks(text) {
-    // Look for patterns like <thinking>...</thinking> or reasoning sections
-    const thinkingPattern = /<thinking>([\s\S]*?)<\/thinking>/gi;
-    const parts = [];
-    let lastIndex = 0;
-    let match;
+  // Render final content with collapsible thinking block
+  function renderFinalContent(source, duration) {
+    const contentEl = document.getElementById(`content-${source}`);
+    const responseEl = document.getElementById(`response-${source}`);
+    if (!contentEl || !responseEl) return;
 
-    while ((match = thinkingPattern.exec(text)) !== null) {
-      // Add text before thinking block
-      if (match.index > lastIndex) {
-        parts.push({ type: 'text', content: text.slice(lastIndex, match.index) });
-      }
-      // Add thinking block
-      parts.push({ type: 'thinking', content: match[1].trim() });
-      lastIndex = match.index + match[0].length;
-    }
-
-    // Add remaining text
-    if (lastIndex < text.length) {
-      parts.push({ type: 'text', content: text.slice(lastIndex) });
-    }
-
-    // If no thinking blocks found, return original text
-    if (parts.length === 0) {
-      return [{ type: 'text', content: text }];
-    }
-
-    return parts;
-  }
-
-  function renderThinkingBlock(content, index) {
-    return `
-      <div class="thinking-block" data-index="${index}">
-        <div class="thinking-header" onclick="toggleThinking(${index})">
-          <svg class="thinking-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
-          <span class="sparkle">✧</span>
-          <span class="sparkle">✧</span>
-          <span class="sparkle">✧</span>
-          <span style="margin-left: 4px;">Thinking</span>
-        </div>
-        <div class="thinking-content">${marked.parse(content)}</div>
-      </div>
-    `;
-  }
-
-  function renderContent(source) {
-    const el = document.getElementById(`content-${source}`);
-    if (!el) return;
-
-    el.classList.remove('empty');
+    contentEl.classList.remove('empty');
     const text = state.responses[source];
 
     if (!text) {
-      el.innerHTML = '';
-      el.classList.add('empty');
+      responseEl.innerHTML = '';
+      contentEl.classList.add('empty');
       return;
     }
 
-    // Parse thinking blocks
-    const parts = parseThinkingBlocks(text);
-    let html = '';
-    let thinkingIndex = 0;
+    // Create thinking block header
+    const durationText = duration > 0 ? `${duration}s` : '';
+    const thinkingBlock = `
+      <div class="thinking-block collapsed" id="thinking-block-${source}">
+        <div class="thinking-header" onclick="toggleThinkingBlock('${source}')">
+          <svg class="thinking-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+          <div class="thinking-header-text">
+            <span class="thinking-label">Thought for ${durationText}</span>
+          </div>
+        </div>
+        <div class="thinking-content">
+          <div class="thinking-text">${escapeHtml(text.slice(0, 500))}${text.length > 500 ? '...' : ''}</div>
+        </div>
+      </div>
+    `;
 
-    for (const part of parts) {
-      if (part.type === 'thinking') {
-        html += renderThinkingBlock(part.content, thinkingIndex++);
-      } else {
-        try {
-          html += marked.parse(part.content);
-        } catch (e) {
-          html += `<p>${part.content}</p>`;
-        }
-      }
+    // Render the main response as markdown
+    let responseHtml = '';
+    try {
+      responseHtml = marked.parse(text);
+    } catch (e) {
+      responseHtml = `<p>${escapeHtml(text)}</p>`;
     }
 
-    el.innerHTML = html;
-    el.scrollTop = el.scrollHeight;
+    responseEl.innerHTML = thinkingBlock + responseHtml;
+    contentEl.scrollTop = contentEl.scrollHeight;
   }
 
-  // Toggle thinking block
-  window.toggleThinking = function(index) {
-    const block = document.querySelector(`.thinking-block[data-index="${index}"]`);
+  // Escape HTML for safe display
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // Toggle completed thinking block
+  window.toggleThinkingBlock = function(source) {
+    const block = document.getElementById(`thinking-block-${source}`);
     if (block) {
       block.classList.toggle('collapsed');
     }
@@ -896,11 +1089,30 @@
   function clearAll() {
     ['claude', 'chatgpt', 'gemini', 'synthesis'].forEach(source => {
       state.responses[source] = '';
+      state.thinkingStartTime[source] = null;
+      state.isStreaming[source] = false;
+
+      // Clear response content
+      const responseEl = document.getElementById(`response-${source}`);
+      if (responseEl) {
+        responseEl.innerHTML = '';
+      }
+
+      // Clear thinking preview
+      const previewEl = document.getElementById(`thinking-preview-${source}`);
+      if (previewEl) {
+        previewEl.textContent = '';
+      }
+
+      // Hide thinking indicator
+      showThinkingIndicator(source, false);
+
+      // Reset content container
       const content = document.getElementById(`content-${source}`);
       if (content) {
-        content.innerHTML = '';
         content.classList.add('empty');
       }
+
       setSourceStatus(source, 'idle');
     });
     triageOverlay.classList.remove('has-new');
