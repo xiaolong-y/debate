@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LLM Debate</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --paper: #FFFCF0; --ink: #2D2B28; --muted: #6F6E69;
+    --line: #DAD8CE; --panel: #F2F0E5;
+    --blue: #205EA6; --cyan: #24837B; --green: #66800B;
+    --orange: #BC5215; --red: #AF3029; --purple: #5E409D;
+    --yellow: #AD8301; --magenta: #A02F6F;
+    --radius: 2px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #100F0F; --ink: #CECDC3; --muted: #878580;
+      --line: #403E3C; --panel: #1C1B1A;
+      --blue: #4385BE; --cyan: #3AA99F; --green: #879A39;
+      --orange: #DA702C; --red: #D14D41; --purple: #8B7EC8;
+      --yellow: #D0A215; --magenta: #CE5D97;
+    }
+  }
+
+  html, body {
+    height: 100%;
+    font: 13px/1.5 'IBM Plex Mono', ui-monospace, monospace;
+    background: var(--paper);
+    color: var(--ink);
+  }
+
+  .container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 12px;
+    gap: 12px;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  header h1 {
+    font-size: 1.1em;
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+
+  .prompt-form {
+    display: flex;
+    flex: 1;
+    gap: 8px;
+    min-width: 300px;
+  }
+
+  .prompt-input {
+    flex: 1;
+    padding: 8px 12px;
+    font: inherit;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--panel);
+    color: var(--ink);
+    min-width: 200px;
+  }
+
+  .prompt-input:focus {
+    outline: none;
+    border-color: var(--blue);
+  }
+
+  .prompt-input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .mode-select {
+    padding: 8px 12px;
+    font: inherit;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--panel);
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .submit-btn {
+    padding: 8px 16px;
+    font: inherit;
+    font-weight: 500;
+    border: none;
+    border-radius: var(--radius);
+    background: var(--blue);
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+
+  .submit-btn:hover:not(:disabled) {
+    background: var(--cyan);
+  }
+
+  .submit-btn:disabled {
+    background: var(--muted);
+    cursor: not-allowed;
+  }
+
+  /* Status bar */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    font-size: 0.85em;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  .status-bar.error {
+    border-color: var(--red);
+    color: var(--red);
+  }
+
+  .status-bar.success {
+    border-color: var(--green);
+    color: var(--green);
+  }
+
+  .status-text {
+    flex: 1;
+  }
+
+  .connection-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+  }
+
+  .connection-indicator.connected {
+    background: var(--green);
+  }
+
+  .connection-indicator.disconnected {
+    background: var(--red);
+  }
+
+  /* Auth badges */
+  .auth-badges {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .auth-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: var(--radius);
+    font-size: 0.75em;
+    background: var(--paper);
+    border: 1px solid var(--line);
+  }
+
+  .auth-badge .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+
+  .auth-badge.authenticated .dot {
+    background: var(--green);
+  }
+
+  .auth-badge.not-authenticated .dot {
+    background: var(--red);
+  }
+
+  /* Grid */
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 12px;
+    flex: 1;
+    min-height: 0;
+  }
+
+  @media (max-width: 900px) {
+    .grid {
+      grid-template-columns: 1fr;
+      grid-template-rows: repeat(4, 1fr);
+    }
+  }
+
+  /* Panes */
+  .pane {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--panel);
+    overflow: hidden;
+    min-height: 0;
+    transition: border-color 0.2s;
+  }
+
+  .pane.streaming {
+    border-color: var(--cyan);
+  }
+
+  .pane.complete {
+    border-color: var(--green);
+  }
+
+  .pane.error {
+    border-color: var(--red);
+  }
+
+  .pane-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--line);
+    background: var(--paper);
+    flex-shrink: 0;
+    gap: 8px;
+  }
+
+  .pane-title {
+    font-weight: 600;
+    font-size: 0.9em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .pane[data-source="claude"] .pane-title { color: var(--orange); }
+  .pane[data-source="chatgpt"] .pane-title { color: var(--green); }
+  .pane[data-source="gemini"] .pane-title { color: var(--blue); }
+  .pane[data-source="synthesis"] .pane-title { color: var(--purple); }
+
+  .pane-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .pane-status {
+    font-size: 0.75em;
+    color: var(--muted);
+    padding: 2px 6px;
+    border-radius: var(--radius);
+    background: var(--panel);
+  }
+
+  .pane-status.streaming {
+    color: var(--cyan);
+    background: rgba(36, 131, 123, 0.1);
+  }
+
+  .pane-status.complete {
+    color: var(--green);
+    background: rgba(102, 128, 11, 0.1);
+  }
+
+  .pane-status.error {
+    color: var(--red);
+    background: rgba(175, 48, 41, 0.1);
+  }
+
+  .pane-content {
+    flex: 1;
+    padding: 12px;
+    overflow-y: auto;
+    font-size: 0.9em;
+    line-height: 1.6;
+  }
+
+  .pane-content.empty::before {
+    content: "Waiting for response...";
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  .pane-content.error-content {
+    color: var(--red);
+  }
+
+  /* Markdown styling */
+  .pane-content h1, .pane-content h2, .pane-content h3 {
+    margin: 1em 0 0.5em;
+    font-weight: 600;
+  }
+
+  .pane-content h1:first-child,
+  .pane-content h2:first-child,
+  .pane-content h3:first-child {
+    margin-top: 0;
+  }
+
+  .pane-content h1 { font-size: 1.2em; }
+  .pane-content h2 { font-size: 1.1em; }
+  .pane-content h3 { font-size: 1em; }
+
+  .pane-content p {
+    margin: 0.5em 0;
+  }
+
+  .pane-content ul, .pane-content ol {
+    margin: 0.5em 0 0.5em 1.5em;
+  }
+
+  .pane-content li {
+    margin: 0.25em 0;
+  }
+
+  .pane-content code {
+    font-family: inherit;
+    background: var(--paper);
+    padding: 2px 4px;
+    border-radius: var(--radius);
+    font-size: 0.9em;
+  }
+
+  .pane-content pre {
+    background: var(--paper);
+    padding: 12px;
+    border-radius: var(--radius);
+    overflow-x: auto;
+    margin: 0.5em 0;
+  }
+
+  .pane-content pre code {
+    background: none;
+    padding: 0;
+  }
+
+  .pane-content blockquote {
+    border-left: 3px solid var(--blue);
+    padding-left: 12px;
+    margin: 0.5em 0;
+    color: var(--muted);
+  }
+
+  .pane-content strong {
+    font-weight: 600;
+  }
+
+  .pane-content em {
+    font-style: italic;
+  }
+
+  /* Copy button */
+  .copy-btn {
+    padding: 4px 8px;
+    font: inherit;
+    font-size: 0.75em;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--paper);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .copy-btn:hover {
+    border-color: var(--blue);
+    color: var(--blue);
+  }
+
+  .copy-btn.copied {
+    border-color: var(--green);
+    color: var(--green);
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--panel);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--line);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--muted);
+  }
+
+  /* Loading spinner */
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--line);
+    border-top-color: var(--cyan);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>LLM Debate</h1>
+      <form class="prompt-form" id="prompt-form">
+        <input type="text" class="prompt-input" id="prompt-input"
+               placeholder="Enter your prompt..." autocomplete="off">
+        <select class="mode-select" id="mode-select">
+          <option value="synthesis">Synthesis</option>
+          <option value="arbitration">Arbitration</option>
+        </select>
+        <button type="submit" class="submit-btn" id="submit-btn">Debate</button>
+      </form>
+    </header>
+
+    <div class="status-bar" id="status-bar">
+      <span class="connection-indicator" id="connection-indicator"></span>
+      <span class="status-text" id="status-text">Connecting...</span>
+      <div class="auth-badges" id="auth-badges">
+        <span class="auth-badge" data-llm="claude"><span class="dot"></span>Claude</span>
+        <span class="auth-badge" data-llm="chatgpt"><span class="dot"></span>ChatGPT</span>
+        <span class="auth-badge" data-llm="gemini"><span class="dot"></span>Gemini</span>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="pane" data-source="claude" id="pane-claude">
+        <div class="pane-header">
+          <span class="pane-title">Claude</span>
+          <div class="pane-meta">
+            <span class="pane-status" id="status-claude">idle</span>
+            <button class="copy-btn" data-copy="claude">Copy</button>
+          </div>
+        </div>
+        <div class="pane-content empty" id="content-claude"></div>
+      </div>
+
+      <div class="pane" data-source="chatgpt" id="pane-chatgpt">
+        <div class="pane-header">
+          <span class="pane-title">ChatGPT</span>
+          <div class="pane-meta">
+            <span class="pane-status" id="status-chatgpt">idle</span>
+            <button class="copy-btn" data-copy="chatgpt">Copy</button>
+          </div>
+        </div>
+        <div class="pane-content empty" id="content-chatgpt"></div>
+      </div>
+
+      <div class="pane" data-source="gemini" id="pane-gemini">
+        <div class="pane-header">
+          <span class="pane-title">Gemini</span>
+          <div class="pane-meta">
+            <span class="pane-status" id="status-gemini">idle</span>
+            <button class="copy-btn" data-copy="gemini">Copy</button>
+          </div>
+        </div>
+        <div class="pane-content empty" id="content-gemini"></div>
+      </div>
+
+      <div class="pane" data-source="synthesis" id="pane-synthesis">
+        <div class="pane-header">
+          <span class="pane-title">Synthesis</span>
+          <div class="pane-meta">
+            <span class="pane-status" id="status-synthesis">idle</span>
+            <button class="copy-btn" data-copy="synthesis">Copy</button>
+          </div>
+        </div>
+        <div class="pane-content empty" id="content-synthesis"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // State
+  const state = {
+    ws: null,
+    connected: false,
+    debating: false,
+    responses: {
+      claude: '',
+      chatgpt: '',
+      gemini: '',
+      synthesis: ''
+    },
+    auth: {
+      claude: null,
+      chatgpt: null,
+      gemini: null
+    }
+  };
+
+  // Elements
+  const form = document.getElementById('prompt-form');
+  const input = document.getElementById('prompt-input');
+  const modeSelect = document.getElementById('mode-select');
+  const submitBtn = document.getElementById('submit-btn');
+  const statusText = document.getElementById('status-text');
+  const connectionIndicator = document.getElementById('connection-indicator');
+
+  // Initialize marked
+  marked.setOptions({
+    breaks: true,
+    gfm: true
+  });
+
+  // Connect to WebSocket
+  function connect() {
+    const sessionId = crypto.randomUUID();
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/${sessionId}`;
+
+    state.ws = new WebSocket(wsUrl);
+
+    state.ws.onopen = () => {
+      state.connected = true;
+      setConnectionStatus(true);
+      setStatus('Connected. Ready for debate.');
+      enableForm(true);
+    };
+
+    state.ws.onclose = () => {
+      state.connected = false;
+      setConnectionStatus(false);
+      setStatus('Disconnected. Reconnecting...', 'error');
+      enableForm(false);
+      setTimeout(connect, 2000);
+    };
+
+    state.ws.onerror = (err) => {
+      console.error('WebSocket error:', err);
+    };
+
+    state.ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      handleMessage(msg);
+    };
+  }
+
+  // Handle WebSocket messages
+  function handleMessage(msg) {
+    switch (msg.type) {
+      case 'chunk':
+        appendContent(msg.source, msg.content);
+        setSourceStatus(msg.source, 'streaming');
+        break;
+
+      case 'complete':
+        setContent(msg.source, msg.content);
+        setSourceStatus(msg.source, 'complete');
+
+        // Re-enable form when synthesis completes
+        if (msg.source === 'synthesis') {
+          state.debating = false;
+          enableForm(true);
+          setStatus('Debate complete!', 'success');
+        }
+        break;
+
+      case 'status':
+        setStatus(msg.message);
+        break;
+
+      case 'error':
+        setSourceStatus(msg.source, 'error');
+        if (msg.source === 'auth' || msg.source === 'system' || msg.source === 'debate') {
+          setStatus(msg.message, 'error');
+          state.debating = false;
+          enableForm(true);
+        }
+        // Show error in the pane if it's a source error
+        if (['claude', 'chatgpt', 'gemini', 'synthesis'].includes(msg.source)) {
+          setContent(msg.source, `Error: ${msg.message}`);
+          document.getElementById(`content-${msg.source}`).classList.add('error-content');
+        }
+        break;
+
+      case 'auth_status':
+        setAuthStatus(msg.source, msg.authenticated);
+        break;
+    }
+  }
+
+  // UI helpers
+  function setStatus(message, type = '') {
+    statusText.textContent = message;
+    const statusBar = document.getElementById('status-bar');
+    statusBar.classList.remove('error', 'success');
+    if (type) {
+      statusBar.classList.add(type);
+    }
+  }
+
+  function setConnectionStatus(connected) {
+    connectionIndicator.classList.toggle('connected', connected);
+    connectionIndicator.classList.toggle('disconnected', !connected);
+  }
+
+  function setAuthStatus(source, authenticated) {
+    state.auth[source] = authenticated;
+    const badge = document.querySelector(`.auth-badge[data-llm="${source}"]`);
+    if (badge) {
+      badge.classList.toggle('authenticated', authenticated);
+      badge.classList.toggle('not-authenticated', !authenticated);
+    }
+  }
+
+  function enableForm(enabled) {
+    input.disabled = !enabled;
+    submitBtn.disabled = !enabled || state.debating;
+    modeSelect.disabled = !enabled || state.debating;
+  }
+
+  function setSourceStatus(source, status) {
+    const el = document.getElementById(`status-${source}`);
+    const pane = document.getElementById(`pane-${source}`);
+
+    if (el) {
+      el.textContent = status;
+      el.className = 'pane-status ' + status;
+    }
+
+    if (pane) {
+      pane.classList.remove('streaming', 'complete', 'error');
+      if (status !== 'idle') {
+        pane.classList.add(status);
+      }
+    }
+  }
+
+  function appendContent(source, chunk) {
+    state.responses[source] += chunk;
+    renderContent(source);
+  }
+
+  function setContent(source, content) {
+    state.responses[source] = content;
+    renderContent(source);
+  }
+
+  function renderContent(source) {
+    const el = document.getElementById(`content-${source}`);
+    if (el) {
+      el.classList.remove('empty', 'error-content');
+      // Render markdown
+      try {
+        el.innerHTML = marked.parse(state.responses[source]);
+      } catch (e) {
+        el.textContent = state.responses[source];
+      }
+      // Auto-scroll to bottom
+      el.scrollTop = el.scrollHeight;
+    }
+  }
+
+  function clearAll() {
+    ['claude', 'chatgpt', 'gemini', 'synthesis'].forEach(source => {
+      state.responses[source] = '';
+      const content = document.getElementById(`content-${source}`);
+      if (content) {
+        content.innerHTML = '';
+        content.classList.add('empty');
+        content.classList.remove('error-content');
+      }
+      setSourceStatus(source, 'idle');
+    });
+  }
+
+  // Form submission
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    const prompt = input.value.trim();
+    if (!prompt) return;
+
+    if (!state.connected) {
+      setStatus('Not connected. Please wait...', 'error');
+      return;
+    }
+
+    if (state.debating) {
+      return;
+    }
+
+    // Clear previous responses
+    clearAll();
+
+    // Disable form and mark as debating
+    state.debating = true;
+    enableForm(false);
+    setStatus('Starting debate...');
+
+    // Send debate request
+    state.ws.send(JSON.stringify({
+      action: 'debate',
+      prompt: prompt,
+      mode: modeSelect.value
+    }));
+  });
+
+  // Copy buttons
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const source = btn.dataset.copy;
+      const text = state.responses[source];
+      if (text) {
+        navigator.clipboard.writeText(text).then(() => {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(() => {
+            btn.textContent = 'Copy';
+            btn.classList.remove('copied');
+          }, 1500);
+        });
+      }
+    });
+  });
+
+  // Keyboard shortcut: Cmd/Ctrl+Enter to submit
+  input.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      form.dispatchEvent(new Event('submit'));
+    }
+  });
+
+  // Focus input on load
+  input.focus();
+
+  // Connect on load
+  connect();
+
+  // Handle URL params (for CLI invocation)
+  const params = new URLSearchParams(window.location.search);
+  const promptParam = params.get('prompt');
+  const modeParam = params.get('mode');
+
+  if (promptParam) {
+    input.value = promptParam;
+    if (modeParam) {
+      modeSelect.value = modeParam;
+    }
+    // Auto-submit after connection
+    const checkAndSubmit = () => {
+      if (state.connected) {
+        // Small delay to ensure UI is ready
+        setTimeout(() => {
+          form.dispatchEvent(new Event('submit'));
+        }, 500);
+      } else {
+        setTimeout(checkAndSubmit, 100);
+      }
+    };
+    checkAndSubmit();
+  }
+  </script>
+</body>
+</html>
