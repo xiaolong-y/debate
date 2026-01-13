@@ -3,10 +3,23 @@ Triage module for synthesizing and arbitrating LLM responses.
 Combines both operations in a single pass for token efficiency.
 """
 
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from typing import Callable
 
-from playwright_client import LLMClient
+# Import both client types for flexibility
+try:
+    from playwright_client import LLMClient
+except ImportError:
+    LLMClient = None
+
+try:
+    from uc_client import LLMClient as UCLLMClient
+except ImportError:
+    UCLLMClient = None
+
+_executor = ThreadPoolExecutor(max_workers=2)
 
 
 class TriageMode(str, Enum):
@@ -190,7 +203,7 @@ async def run_triage(
 
 
 async def run_triage_with_existing_client(
-    client: LLMClient,
+    client,  # LLMClient (Playwright)
     prompt: str,
     responses: dict[str, str],
     mode: TriageMode = TriageMode.UNIFIED,
@@ -198,10 +211,10 @@ async def run_triage_with_existing_client(
     timeout: int = 120000,
 ) -> str:
     """
-    Run triage using an already-open client.
+    Run triage using an already-open Playwright client.
 
     Args:
-        client: Existing LLMClient instance
+        client: Existing LLMClient instance (Playwright)
         prompt: Original user prompt
         responses: Dict of LLM name -> response
         mode: Triage mode (unified recommended)
@@ -218,3 +231,37 @@ async def run_triage_with_existing_client(
         on_chunk=on_chunk,
         timeout=timeout,
     )
+
+
+async def run_triage_with_uc_client(
+    client,  # LLMClient from uc_client (undetected-chromedriver)
+    prompt: str,
+    responses: dict[str, str],
+    mode: TriageMode = TriageMode.UNIFIED,
+    on_chunk: Callable[[str], None] | None = None,
+    timeout: int = 120,
+) -> str:
+    """
+    Run triage using an undetected-chromedriver client.
+
+    Args:
+        client: Existing UCLLMClient instance
+        prompt: Original user prompt
+        responses: Dict of LLM name -> response
+        mode: Triage mode (unified recommended)
+        on_chunk: Streaming callback
+        timeout: Max time (seconds)
+
+    Returns:
+        Triage result
+    """
+    triage_prompt = build_triage_prompt(prompt, responses, mode)
+
+    loop = asyncio.get_event_loop()
+
+    # Run blocking Selenium code in thread pool
+    result = await loop.run_in_executor(
+        _executor,
+        lambda: client.send_prompt(triage_prompt, on_chunk=on_chunk, timeout=timeout)
+    )
+    return result

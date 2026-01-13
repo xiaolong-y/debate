@@ -12,15 +12,15 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
 
-from playwright_client import DebateOrchestrator, LLMClientError
-from triage import run_triage_with_existing_client, TriageMode
+from uc_client import AsyncDebateOrchestrator
+from triage import run_triage_with_uc_client, TriageMode
 
 
 # Static files directory
 STATIC_DIR = Path(__file__).parent / "static"
 
 # Global orchestrator for connection pooling (optional optimization)
-_orchestrator: DebateOrchestrator | None = None
+_orchestrator: AsyncDebateOrchestrator | None = None
 
 
 @asynccontextmanager
@@ -176,8 +176,8 @@ async def run_debate_session(
 
     orchestrator = None
     try:
-        orchestrator = DebateOrchestrator(headless=False)
-        await orchestrator.start()
+        orchestrator = AsyncDebateOrchestrator(headless=False)
+        await orchestrator.__aenter__()
 
         # Check auth first
         await handler.send_status("Checking authentication...")
@@ -190,7 +190,7 @@ async def run_debate_session(
         if not_logged_in:
             await handler.send_error(
                 "auth",
-                f"Not logged in to: {', '.join(not_logged_in)}. Run 'debate --setup' first.",
+                f"Not logged in to: {', '.join(not_logged_in)}. Run 'python setup_auth.py' first.",
             )
             return
 
@@ -198,21 +198,25 @@ async def run_debate_session(
 
         # Response tracking
         responses: dict[str, str] = {}
-        response_buffers: dict[str, str] = {"claude": "", "chatgpt": "", "gemini": ""}
-        completed_sources: set[str] = set()
+
+        # Get the current event loop for thread-safe callbacks
+        loop = asyncio.get_running_loop()
 
         # Async callback for streaming
         async def on_update_async(llm_name: str, chunk: str):
-            response_buffers[llm_name] += chunk
             await handler.send_chunk(llm_name, chunk)
 
-        # Sync wrapper for the callback (Playwright callbacks are sync)
+        # Sync wrapper for the callback (Selenium callbacks are sync, called from thread pool)
         def on_update(llm_name: str, chunk: str):
-            asyncio.create_task(on_update_async(llm_name, chunk))
+            # Use call_soon_threadsafe to schedule the coroutine from another thread
+            # Use default argument to capture current values (avoid late binding)
+            def schedule(n=llm_name, c=chunk):
+                asyncio.create_task(on_update_async(n, c))
+            loop.call_soon_threadsafe(schedule)
 
-        # Query all LLMs in parallel
+        # Query all LLMs in parallel (timeout in seconds for uc_client)
         try:
-            results = await orchestrator.debate(prompt, on_update=on_update, timeout=180000)
+            results = await orchestrator.debate(prompt, on_update=on_update, timeout=180)
         except Exception as e:
             await handler.send_error("debate", f"Debate failed: {str(e)[:100]}")
             return
@@ -235,20 +239,28 @@ async def run_debate_session(
             await handler.send_chunk("synthesis", chunk)
 
         def on_triage_chunk(chunk: str):
-            asyncio.create_task(on_triage_chunk_async(chunk))
+            # Use call_soon_threadsafe for thread pool callbacks
+            # Use default argument to capture current value (avoid late binding)
+            def schedule(c=chunk):
+                asyncio.create_task(on_triage_chunk_async(c))
+            loop.call_soon_threadsafe(schedule)
 
         try:
-            triage_result = await run_triage_with_existing_client(
+            print("[DEBUG] Starting triage with Claude...")
+            triage_result = await run_triage_with_uc_client(
                 claude_client,
                 prompt,
                 responses,
                 mode=mode,
                 on_chunk=on_triage_chunk,
-                timeout=180000,
+                timeout=180,
             )
+            print(f"[DEBUG] Triage complete, result length: {len(triage_result) if triage_result else 0}")
             await handler.send_complete("synthesis", triage_result)
         except Exception as e:
-            await handler.send_error("synthesis", f"Triage failed: {str(e)[:100]}")
+            import traceback
+            print(f"[DEBUG] Triage error: {traceback.format_exc()}")
+            await handler.send_error("synthesis", f"Triage failed: {str(e)[:200]}")
 
         await handler.send_status("Debate complete!")
 
@@ -259,7 +271,7 @@ async def run_debate_session(
         # Cleanup
         if orchestrator:
             try:
-                await orchestrator.stop()
+                await orchestrator.__aexit__(None, None, None)
             except Exception:
                 pass
 
@@ -270,8 +282,8 @@ async def check_auth_status(handler: WebSocketHandler):
 
     orchestrator = None
     try:
-        orchestrator = DebateOrchestrator(headless=True)
-        await orchestrator.start()
+        orchestrator = AsyncDebateOrchestrator(headless=True)
+        await orchestrator.__aenter__()
         auth_status = await orchestrator.check_auth()
 
         for name, logged_in in auth_status.items():
@@ -290,7 +302,7 @@ async def check_auth_status(handler: WebSocketHandler):
     finally:
         if orchestrator:
             try:
-                await orchestrator.stop()
+                await orchestrator.__aexit__(None, None, None)
             except Exception:
                 pass
 

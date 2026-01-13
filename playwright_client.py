@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 from typing import AsyncIterator, Callable
 
-from playwright.async_api import async_playwright, BrowserContext, Page, TimeoutError as PlaywrightTimeout
+from playwright.async_api import async_playwright, BrowserContext, Page, Browser, TimeoutError as PlaywrightTimeout
 
 from llm_selectors import (
     get_selectors,
@@ -25,6 +25,11 @@ from llm_selectors import (
 CHROME_USER_DATA = Path.home() / "Library" / "Application Support" / "Google" / "Chrome"
 # Fallback to separate profile if Chrome profile doesn't exist
 BROWSER_DATA_DIR = Path.home() / ".debate" / "browser-data"
+
+# Shared browser instance (managed by orchestrator)
+_shared_browser: Browser | None = None
+_shared_context: BrowserContext | None = None
+_chrome_process: subprocess.Popen | None = None
 
 def get_chrome_path():
     """Get the path to Chrome executable."""
@@ -71,14 +76,17 @@ class LLMClient:
         llm_name: str,
         browser_data_dir: Path = BROWSER_DATA_DIR,
         headless: bool = False,
+        shared_context: BrowserContext | None = None,
     ):
         self.llm_name = llm_name
         self.selectors = get_selectors(llm_name)
         self.browser_data_dir = browser_data_dir / llm_name
         self.headless = headless
+        self._shared_context = shared_context  # If provided, use this instead of creating our own
         self._context: BrowserContext | None = None
         self._page: Page | None = None
         self._playwright = None
+        self._owns_browser = False  # Whether we created the browser ourselves
 
     async def __aenter__(self):
         await self.start()
@@ -88,17 +96,36 @@ class LLMClient:
         await self.stop()
 
     async def start(self):
-        """Start browser - uses Firefox which bypasses Cloudflare better."""
-        self.browser_data_dir.mkdir(parents=True, exist_ok=True)
+        """Start browser - uses shared context if provided, else creates own browser."""
+        if self._shared_context:
+            # Use shared browser context from orchestrator
+            self._context = self._shared_context
+            self._page = await self._context.new_page()
+            self._owns_browser = False
+            return
+
+        # Create our own browser (standalone mode) using saved profile
+        self._owns_browser = True
         self._playwright = await async_playwright().start()
 
-        # Use Firefox - it handles Cloudflare Turnstile much better than Chromium
-        self._context = await self._playwright.firefox.launch_persistent_context(
-            user_data_dir=str(self.browser_data_dir),
+        # When running standalone, always use the separate profile (not system Chrome)
+        # This is because system Chrome approach is handled by the orchestrator
+        # Profile is in ~/.debate/browser-data/pw-{llm_name}/ (pw = playwright)
+        profile_dir = BROWSER_DATA_DIR / f"pw-{self.llm_name}"
+        profile_dir.mkdir(parents=True, exist_ok=True)
+
+        # Clean up stale lock files from crashed sessions
+        singleton_lock = profile_dir / "SingletonLock"
+        if singleton_lock.exists():
+            try:
+                singleton_lock.unlink()
+            except Exception:
+                pass
+
+        self._context = await self._playwright.chromium.launch_persistent_context(
+            user_data_dir=str(profile_dir),
             headless=self.headless,
             viewport={"width": 1280, "height": 900},
-            locale="en-US",
-            timezone_id="America/New_York",
         )
 
         # Get or create page
@@ -108,11 +135,25 @@ class LLMClient:
             self._page = await self._context.new_page()
 
     async def stop(self):
-        """Close browser context."""
-        if self._context:
-            await self._context.close()
-        if self._playwright:
-            await self._playwright.stop()
+        """Close page (and browser if we own it)."""
+        if self._page:
+            try:
+                await self._page.close()
+            except Exception:
+                pass
+            self._page = None
+
+        # Only close browser if we created it ourselves
+        if self._owns_browser:
+            if self._context:
+                try:
+                    await self._context.close()
+                except Exception:
+                    pass
+                self._context = None
+            if self._playwright:
+                await self._playwright.stop()
+                self._playwright = None
 
     async def _find_element_with_fallbacks(
         self,
@@ -435,6 +476,9 @@ class DebateOrchestrator:
         self.llm_names = llms or ["claude", "chatgpt", "gemini"]
         self.headless = headless
         self.clients: dict[str, LLMClient] = {}
+        self._playwright = None
+        self._browser = None
+        self._context: BrowserContext | None = None
 
     async def __aenter__(self):
         await self.start()
@@ -444,33 +488,121 @@ class DebateOrchestrator:
         await self.stop()
 
     async def start(self):
-        """Start all LLM clients in parallel."""
-        async def start_client(name: str) -> tuple[str, LLMClient]:
-            client = LLMClient(name, headless=self.headless)
-            await client.start()
-            return name, client
+        """Start shared browser and all LLM clients."""
+        global _chrome_process, _shared_browser, _shared_context
 
-        # Start all clients in parallel
-        tasks = [start_client(name) for name in self.llm_names]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        self._playwright = await async_playwright().start()
 
-        for result in results:
-            if isinstance(result, Exception):
-                print(f"Warning: Failed to start client: {result}")
+        # Try to use actual Chrome first
+        chrome_path = get_chrome_path()
+        use_system_chrome = chrome_path and CHROME_USER_DATA.exists() and not self.headless
+
+        if use_system_chrome:
+            debug_port = 9222
+
+            # Check if debug port is already in use (Chrome already running with debug)
+            import socket
+            port_in_use = False
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                result = sock.connect_ex(('localhost', debug_port))
+                port_in_use = (result == 0)
+                sock.close()
+            except Exception:
+                pass
+
+            if port_in_use:
+                print("Found existing Chrome with debug port, connecting...")
             else:
-                name, client = result
+                print("=" * 60)
+                print(" LLM Debate - Launching Chrome with your profile")
+                print(" IMPORTANT: Close Chrome completely before continuing!")
+                print("=" * 60)
+
+                _chrome_process = subprocess.Popen([
+                    chrome_path,
+                    f"--remote-debugging-port={debug_port}",
+                    f"--user-data-dir={CHROME_USER_DATA}",
+                    "--no-first-run",
+                    "--no-default-browser-check",
+                ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+                await asyncio.sleep(3)
+
+            try:
+                self._browser = await self._playwright.chromium.connect_over_cdp(
+                    f"http://localhost:{debug_port}"
+                )
+                _shared_browser = self._browser
+                contexts = self._browser.contexts
+                if contexts:
+                    self._context = contexts[0]
+                else:
+                    self._context = await self._browser.new_context()
+                _shared_context = self._context
+                print("[OK] Connected to Chrome with your existing logins!")
+            except Exception as e:
+                print(f"Could not connect to Chrome: {e}")
+                print("Using separate browser profiles instead...")
+                if _chrome_process:
+                    _chrome_process.terminate()
+                    _chrome_process = None
+                use_system_chrome = False
+
+        if use_system_chrome:
+            # All LLMs share the same Chrome context
+            for name in self.llm_names:
+                client = LLMClient(name, headless=self.headless, shared_context=self._context)
+                await client.start()
+                self.clients[name] = client
+        else:
+            # Each LLM gets its own browser with its own profile (from setup_auth.py)
+            print("[INFO] Using separate Chromium browsers with saved profiles")
+            print("[INFO] Run 'python setup_auth.py' first if not logged in")
+
+            for name in self.llm_names:
+                client = LLMClient(name, headless=self.headless)
+                await client.start()
                 self.clients[name] = client
 
     async def stop(self):
-        """Stop all LLM clients in parallel."""
-        async def stop_client(client: LLMClient):
+        """Stop all LLM clients and shared browser."""
+        global _chrome_process, _shared_browser, _shared_context
+
+        # Stop all clients (they'll just close their pages)
+        for client in self.clients.values():
             try:
                 await client.stop()
             except Exception as e:
                 print(f"Warning: Error stopping client: {e}")
 
-        tasks = [stop_client(client) for client in self.clients.values()]
-        await asyncio.gather(*tasks)
+        self.clients.clear()
+
+        # Close shared context and browser
+        if self._context:
+            try:
+                await self._context.close()
+            except Exception:
+                pass
+            self._context = None
+            _shared_context = None
+
+        if self._browser:
+            try:
+                await self._browser.close()
+            except Exception:
+                pass
+            self._browser = None
+            _shared_browser = None
+
+        if self._playwright:
+            await self._playwright.stop()
+            self._playwright = None
+
+        # Terminate Chrome if we launched it
+        if _chrome_process:
+            _chrome_process.terminate()
+            _chrome_process = None
 
     async def check_auth(self) -> dict[str, bool]:
         """Check which LLMs are logged in (in parallel)."""

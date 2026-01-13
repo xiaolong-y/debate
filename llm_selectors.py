@@ -60,7 +60,8 @@ SELECTORS = {
         # ChatGPT uses contenteditable div now, not textarea
         input_selector="div#prompt-textarea[contenteditable='true']",
         submit_selector="button[data-testid='send-button']",
-        response_selector="div[data-message-author-role='assistant']",
+        # Target the markdown prose content inside assistant message, not the wrapper
+        response_selector="div[data-message-author-role='assistant'] .markdown.prose",
         stop_selector="button[aria-label='Stop generating']",
         response_complete_indicator=None,  # Check for absence of streaming indicator
         input_fallbacks=[
@@ -80,36 +81,43 @@ SELECTORS = {
             "button.send-button",
         ],
         response_fallbacks=[
-            "[data-message-author-role='assistant']",
-            ".markdown.prose",
-            "[class*='agent-turn']",
-            "div.agent-turn",
-            "[data-testid='conversation-turn'] [data-message-author-role='assistant']",
+            # Target actual content, not wrapper elements
+            "div[data-message-author-role='assistant'] .prose",
+            "div[data-message-author-role='assistant'] .markdown",
+            "[data-message-author-role='assistant'] div.whitespace-pre-wrap",
+            ".agent-turn .markdown",
+            "article[data-testid='conversation-turn-3'] .prose",
         ],
     ),
     "gemini": LLMSelectors(
         url="https://gemini.google.com",
         new_chat_url="https://gemini.google.com/app",
-        # Gemini uses custom web components
+        # Gemini uses custom web components - selectors updated Jan 2025
         input_selector="rich-textarea div[contenteditable='true']",
-        submit_selector="button[aria-label='Send message']",
-        response_selector="message-content.model-response-text",
+        submit_selector="button.send-button",
+        response_selector=".model-response-text .markdown-main-panel",
         stop_selector="button[aria-label='Stop responding']",
         response_complete_indicator=None,
         input_fallbacks=[
             ".ql-editor[contenteditable='true']",
             "[aria-label*='Enter a prompt']",
             "div[contenteditable='true']",
+            "rich-textarea [contenteditable='true']",
         ],
         submit_fallbacks=[
-            "button.send-button",
+            "button[aria-label='Send message']",
             "[aria-label='Submit']",
-            "button:has([data-icon='send'])",
+            "button[data-test-id='send-button']",
+            "button mat-icon-button",
         ],
         response_fallbacks=[
+            # Gemini response content selectors
+            ".response-content",
+            "message-content .markdown",
             ".model-response-text",
-            "[class*='response-container']",
-            ".markdown-main-panel",
+            "[class*='response'] .markdown",
+            "model-response .content",
+            ".conversation-container .model-response",
         ],
     ),
 }

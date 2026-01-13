@@ -77,11 +77,12 @@ def main(
 
 
 async def run_setup():
-    """Interactive auth setup for all LLMs."""
-    from playwright_client import DebateOrchestrator
+    """Interactive auth setup for all LLMs using undetected-chromedriver."""
+    from uc_client import DebateOrchestrator
 
     console.print(Panel(
         "[bold]LLM Debate Auth Setup[/bold]\n\n"
+        "Using undetected-chromedriver to bypass Cloudflare.\n\n"
         "This will open browser windows for you to log in to:\n"
         "  1. Claude (claude.ai)\n"
         "  2. ChatGPT (chatgpt.com)\n"
@@ -91,20 +92,20 @@ async def run_setup():
         border_style="cyan",
     ))
 
-    async with DebateOrchestrator(headless=False) as orchestrator:
-        await orchestrator.setup_all_auth()
+    with DebateOrchestrator(headless=False) as orchestrator:
+        orchestrator.setup_all_auth()
 
     console.print("\n[green]Setup complete![/green] You can now run debates.")
 
 
 async def run_check():
     """Check authentication status."""
-    from playwright_client import DebateOrchestrator
+    from uc_client import DebateOrchestrator
 
     console.print("[cyan]Checking authentication status...[/cyan]\n")
 
-    async with DebateOrchestrator(headless=True) as orchestrator:
-        auth_status = await orchestrator.check_auth()
+    with DebateOrchestrator(headless=True) as orchestrator:
+        auth_status = orchestrator.check_auth()
 
         for name, logged_in in auth_status.items():
             if logged_in:
@@ -114,7 +115,7 @@ async def run_check():
 
         all_ok = all(auth_status.values())
         if not all_ok:
-            console.print("\n[yellow]Run 'debate --setup' to authenticate.[/yellow]")
+            console.print("\n[yellow]Run 'python setup_auth.py' or 'debate --setup' to authenticate.[/yellow]")
 
 
 def start_server_and_browser(
