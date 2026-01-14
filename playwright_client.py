@@ -13,14 +13,11 @@ import sys
 from pathlib import Path
 from typing import AsyncIterator, Callable, Optional, List, Dict
 
-from playwright.async_api import async_playwright, BrowserContext, Page, Browser, TimeoutError as PlaywrightTimeout
-from playwright_stealth import Stealth
+from patchright.async_api import async_playwright, BrowserContext, Page, Browser, TimeoutError as PlaywrightTimeout
 
-# Stealth instance for hiding automation
-_stealth = Stealth(
-    navigator_platform_override="MacIntel",  # macOS
-    navigator_vendor_override="Google Inc.",
-)
+# Note: playwright_stealth not needed with patchright - it has built-in stealth
+
+# Patchright has built-in stealth - no separate stealth instance needed
 
 from llm_selectors import (
     get_selectors,
@@ -90,7 +87,7 @@ class LLMClient:
         if self._shared_context:
             self._context = self._shared_context
             self._page = await self._context.new_page()
-            await _stealth.apply_stealth_async(self._page)
+            # Patchright has built-in stealth
             self._owns_browser = False
             return
 
@@ -126,14 +123,11 @@ class LLMClient:
             ignore_default_args=["--enable-automation"],
         )
 
-        # Get or create page and apply stealth
+        # Get or create page (patchright has built-in stealth)
         if self._context.pages:
             self._page = self._context.pages[0]
         else:
             self._page = await self._context.new_page()
-
-        # Apply stealth scripts to hide automation
-        await _stealth.apply_stealth_async(self._page)
 
         # Load saved cookies if available
         await self._load_cookies()
