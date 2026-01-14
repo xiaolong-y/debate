@@ -1,4 +1,63 @@
 #!/bin/bash
+set -e
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEBATE_DIR="$(dirname "$SCRIPT_DIR")"
-exec "$DEBATE_DIR/.venv/bin/python" "$DEBATE_DIR/debate.py" --playwright "$@"
+PYTHON="$DEBATE_DIR/.venv/bin/python"
+PORT=8765
+
+usage() {
+    echo "Usage: debate <command> [args]"
+    echo ""
+    echo "Commands:"
+    echo "  run <prompt>    Run a debate with the given prompt"
+    echo "  auth            Authenticate all LLM accounts"
+    echo "  check           Check authentication status"
+    echo "  kill            Kill any running debate server"
+    echo "  server          Start server only (no browser)"
+    echo ""
+    echo "Examples:"
+    echo "  debate run \"What is 2+2?\""
+    echo "  debate auth"
+    exit 1
+}
+
+kill_server() {
+    lsof -ti :$PORT 2>/dev/null | xargs kill -9 2>/dev/null || true
+}
+
+case "${1:-}" in
+    run)
+        shift
+        if [ -z "$1" ]; then
+            echo "Error: Please provide a prompt"
+            echo "Usage: debate run \"your prompt here\""
+            exit 1
+        fi
+        kill_server
+        sleep 1
+        exec "$PYTHON" "$DEBATE_DIR/debate.py" --playwright "$@"
+        ;;
+    auth)
+        kill_server
+        exec "$PYTHON" "$DEBATE_DIR/debate.py" --setup --playwright
+        ;;
+    check)
+        exec "$PYTHON" "$DEBATE_DIR/debate.py" --check --playwright
+        ;;
+    kill)
+        kill_server
+        echo "Killed any debate server on port $PORT"
+        ;;
+    server)
+        kill_server
+        sleep 1
+        exec "$PYTHON" "$DEBATE_DIR/debate.py" --playwright --no-browser
+        ;;
+    -h|--help|help)
+        usage
+        ;;
+    *)
+        usage
+        ;;
+esac
