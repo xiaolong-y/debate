@@ -1,4 +1,4 @@
 #!/bin/bash
-cd "$(dirname "$0")/.."
-source .venv/bin/activate
-python debate.py --playwright "$@"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+DEBATE_DIR="$(dirname "$SCRIPT_DIR")"
+exec "$DEBATE_DIR/.venv/bin/python" "$DEBATE_DIR/debate.py" --playwright "$@"
