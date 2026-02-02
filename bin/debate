@@ -4,9 +4,10 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEBATE_DIR="$(dirname "$SCRIPT_DIR")"
 PYTHON="$DEBATE_DIR/.venv/bin/python"
-PORT=8765
 
-# Turbo mode URLs
+# Config - source of truth is config.py
+# Hardcoded here for shell script performance (<5ms vs ~200ms Python startup)
+PORT=8765
 CLAUDE="https://claude.ai/new"
 CHATGPT="https://chatgpt.com/"
 GEMINI="https://gemini.google.com/app"
