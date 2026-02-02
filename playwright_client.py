@@ -19,6 +19,7 @@ from patchright.async_api import async_playwright, BrowserContext, Page, Browser
 
 # Patchright has built-in stealth - no separate stealth instance needed
 
+from config import BROWSER_DATA_DIR, COOKIES_DIR, MAX_RETRIES, RETRY_DELAY_BASE
 from llm_selectors import (
     get_selectors,
     get_all_input_selectors,
@@ -26,14 +27,6 @@ from llm_selectors import (
     get_all_response_selectors,
     LLMSelectors,
 )
-
-# Browser data directory for persistent sessions
-BROWSER_DATA_DIR = Path.home() / ".debate" / "browser-data"
-COOKIES_DIR = BROWSER_DATA_DIR / "cookies"
-
-# Retry configuration
-MAX_RETRIES = 3
-RETRY_DELAY_BASE = 2
 
 
 class LLMClientError(Exception):
