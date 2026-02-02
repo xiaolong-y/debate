@@ -1,0 +1,18 @@
+#!/bin/bash
+# llm - Ultra-fast LLM opener (<50ms)
+# Opens Claude, ChatGPT, Gemini with prompt in clipboard
+#
+# Usage:
+#   llm "your prompt here"
+#   llm                      # just open windows
+#
+# Performance: ~30-50ms total
+
+# Background clipboard copy (non-blocking)
+[ -n "$1" ] && printf '%s' "$*" | pbcopy &
+
+# Open all 3 URLs with -g (don't bring browser to foreground immediately)
+# This is faster than sequential opens and doesn't block
+open -g "https://claude.ai/new" "https://chatgpt.com/" "https://gemini.google.com/app" &
+
+# Don't wait for anything - exit immediately

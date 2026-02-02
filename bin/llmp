@@ -1,0 +1,45 @@
+#!/bin/bash
+# llmp - LLM opener with auto-paste
+# Opens Claude, ChatGPT, Gemini and automatically pastes prompt
+# Usage: llmp "your prompt"
+
+if [ -z "$1" ]; then
+    echo "Usage: llmp \"your prompt\""
+    exit 1
+fi
+
+# Copy prompt to clipboard
+printf '%s' "$*" | pbcopy
+
+# Open all 3 URLs
+open "https://claude.ai/new" "https://chatgpt.com/" "https://gemini.google.com/app"
+
+echo "🚀 Opening LLMs and auto-pasting..."
+
+# Wait for pages to load, then paste in each tab
+sleep 2
+
+# AppleScript to paste in all browser tabs
+osascript <<'EOF'
+tell application "System Events"
+    -- Get the frontmost browser
+    set frontApp to name of first application process whose frontmost is true
+
+    -- Paste with Cmd+V
+    keystroke "v" using command down
+    delay 0.3
+
+    -- Move to next tab and paste (Cmd+Shift+])
+    keystroke "]" using {command down, shift down}
+    delay 0.5
+    keystroke "v" using command down
+    delay 0.3
+
+    -- Move to next tab and paste
+    keystroke "]" using {command down, shift down}
+    delay 0.5
+    keystroke "v" using command down
+end tell
+EOF
+
+echo "✓ Pasted in all 3 windows"

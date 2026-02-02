@@ -6,27 +6,61 @@ DEBATE_DIR="$(dirname "$SCRIPT_DIR")"
 PYTHON="$DEBATE_DIR/.venv/bin/python"
 PORT=8765
 
+# Turbo mode URLs
+CLAUDE="https://claude.ai/new"
+CHATGPT="https://chatgpt.com/"
+GEMINI="https://gemini.google.com/app"
+
 usage() {
-    echo "Usage: debate <command> [args]"
+    echo "debate - Multi-LLM query tool"
     echo ""
-    echo "Commands:"
-    echo "  run <prompt>    Run a debate with the given prompt"
-    echo "  auth            Authenticate all LLM accounts"
-    echo "  check           Check authentication status"
-    echo "  kill            Kill any running debate server"
-    echo "  server          Start server only (no browser)"
+    echo "Usage:"
+    echo "  debate \"prompt\"           Turbo mode: opens all 3 windows instantly"
+    echo "  debate go \"prompt\"        Explicit turbo mode"
+    echo "  debate run \"prompt\"       Full mode: automation + synthesis"
+    echo "  debate auth               Set up login sessions"
+    echo "  debate check              Check auth status"
+    echo "  debate kill               Stop server"
+    echo "  debate server             Start server only"
     echo ""
     echo "Examples:"
-    echo "  debate run \"What is 2+2?\""
-    echo "  debate auth"
-    exit 1
+    echo "  debate \"What is the meaning of life?\""
+    echo "  debate run \"Compare React vs Vue\""
+    exit 0
 }
 
 kill_server() {
     lsof -ti :$PORT 2>/dev/null | xargs kill -9 2>/dev/null || true
 }
 
+turbo_open() {
+    # Copy prompt to clipboard if provided
+    if [ -n "$1" ]; then
+        echo -n "$*" | pbcopy
+        echo "📋 Prompt copied (${#1} chars)"
+    fi
+
+    # Open all URLs in parallel
+    echo "🚀 Opening LLM windows..."
+    open "$CLAUDE" &
+    open "$CHATGPT" &
+    open "$GEMINI" &
+
+    echo "   ✓ Claude"
+    echo "   ✓ ChatGPT"
+    echo "   ✓ Gemini"
+
+    if [ -n "$1" ]; then
+        echo ""
+        echo "💡 Press ⌘V in each chat window to paste"
+    fi
+}
+
 case "${1:-}" in
+    go)
+        shift
+        turbo_open "$@"
+        ;;
     run)
         shift
         if [ -z "$1" ]; then
@@ -35,29 +69,29 @@ case "${1:-}" in
             exit 1
         fi
         kill_server
-        sleep 1
-        exec "$PYTHON" "$DEBATE_DIR/debate.py" --playwright "$@"
+        sleep 0.5
+        exec "$PYTHON" "$DEBATE_DIR/debate.py" run "$@"
         ;;
     auth)
-        kill_server
-        exec "$PYTHON" "$DEBATE_DIR/debate.py" --setup --playwright
+        exec "$PYTHON" "$DEBATE_DIR/debate.py" auth
         ;;
     check)
-        exec "$PYTHON" "$DEBATE_DIR/debate.py" --check --playwright
+        exec "$PYTHON" "$DEBATE_DIR/debate.py" check
         ;;
     kill)
         kill_server
-        echo "Killed any debate server on port $PORT"
+        echo "✓ Killed any debate server on port $PORT"
         ;;
     server)
         kill_server
-        sleep 1
-        exec "$PYTHON" "$DEBATE_DIR/debate.py" --playwright --no-browser
+        sleep 0.5
+        exec "$PYTHON" "$DEBATE_DIR/debate.py" server
         ;;
-    -h|--help|help)
+    -h|--help|help|"")
         usage
         ;;
     *)
-        usage
+        # Default: turbo mode with prompt
+        turbo_open "$@"
         ;;
 esac

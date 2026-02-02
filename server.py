@@ -1,31 +1,21 @@
 """
 FastAPI server with WebSocket for real-time debate streaming.
-Supports both Playwright (stealth) and undetected-chromedriver backends.
+Uses Patchright (Playwright fork with stealth) for browser automation.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
-import os
 from pathlib import Path
-from typing import Any
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
 
-# Backend selection via environment variable
-USE_PLAYWRIGHT = os.getenv("DEBATE_USE_PLAYWRIGHT", "").lower() in ("1", "true", "yes")
-
-if USE_PLAYWRIGHT:
-    from playwright_client import DebateOrchestrator
-    from triage import run_triage_with_existing_client as run_triage_fn, TriageMode
-else:
-    from uc_client import AsyncDebateOrchestrator as DebateOrchestrator
-    from triage import run_triage_with_uc_client as run_triage_fn, TriageMode
-
+from playwright_client import DebateOrchestrator
+from triage import run_triage_with_existing_client as run_triage_fn, TriageMode
 
 # Static files directory
 STATIC_DIR = Path(__file__).parent / "static"
@@ -41,10 +31,7 @@ async def lifespan(app: FastAPI):
     # Cleanup on shutdown
     global _orchestrator
     if _orchestrator:
-        if USE_PLAYWRIGHT:
-            await _orchestrator.stop()
-        else:
-            await _orchestrator.__aexit__(None, None, None)
+        await _orchestrator.stop()
         _orchestrator = None
 
 
@@ -67,7 +54,7 @@ async def root():
 @app.get("/health")
 async def health():
     """Health check endpoint."""
-    return {"status": "ok", "backend": "playwright" if USE_PLAYWRIGHT else "uc_client"}
+    return {"status": "ok", "backend": "patchright"}
 
 
 class WebSocketHandler:
@@ -186,16 +173,12 @@ async def run_debate_session(
     mode: TriageMode,
 ):
     """Run a full debate session with streaming updates."""
-    backend_name = "Playwright (stealth)" if USE_PLAYWRIGHT else "undetected-chromedriver"
-    await handler.send_status(f"Starting debate session using {backend_name}...")
+    await handler.send_status("Starting debate session...")
 
     orchestrator = None
     try:
         orchestrator = DebateOrchestrator(headless=False)
-        if USE_PLAYWRIGHT:
-            await orchestrator.start()
-        else:
-            await orchestrator.__aenter__()
+        await orchestrator.start()
 
         # Check auth first
         await handler.send_status("Checking authentication...")
@@ -206,10 +189,9 @@ async def run_debate_session(
 
         not_logged_in = [name for name, logged_in in auth_status.items() if not logged_in]
         if not_logged_in:
-            setup_cmd = "setup_auth_pw.py" if USE_PLAYWRIGHT else "setup_auth.py"
             await handler.send_error(
                 "auth",
-                f"Not logged in to: {', '.join(not_logged_in)}. Run 'python {setup_cmd}' first.",
+                f"Not logged in to: {', '.join(not_logged_in)}. Run 'debate auth' first.",
             )
             return
 
@@ -218,30 +200,16 @@ async def run_debate_session(
         # Response tracking
         responses: dict[str, str] = {}
 
-        # Get the current event loop for thread-safe callbacks
-        loop = asyncio.get_running_loop()
-
         # Async callback for streaming
         async def on_update_async(llm_name: str, chunk: str):
             await handler.send_chunk(llm_name, chunk)
 
-        if USE_PLAYWRIGHT:
-            # Playwright callbacks are already async-compatible
-            def on_update(llm_name: str, chunk: str):
-                asyncio.create_task(on_update_async(llm_name, chunk))
-        else:
-            # UC client callbacks are sync, called from thread pool
-            def on_update(llm_name: str, chunk: str):
-                # Use call_soon_threadsafe to schedule the coroutine from another thread
-                # Use default argument to capture current values (avoid late binding)
-                def schedule(n=llm_name, c=chunk):
-                    asyncio.create_task(on_update_async(n, c))
-                loop.call_soon_threadsafe(schedule)
+        def on_update(llm_name: str, chunk: str):
+            asyncio.create_task(on_update_async(llm_name, chunk))
 
         # Query all LLMs in parallel
         try:
-            timeout = 120000 if USE_PLAYWRIGHT else 180  # ms for PW, seconds for UC
-            results = await orchestrator.debate(prompt, on_update=on_update, timeout=timeout)
+            results = await orchestrator.debate(prompt, on_update=on_update, timeout=120000)
         except Exception as e:
             await handler.send_error("debate", f"Debate failed: {str(e)[:100]}")
             return
@@ -263,31 +231,20 @@ async def run_debate_session(
         async def on_triage_chunk_async(chunk: str):
             await handler.send_chunk("synthesis", chunk)
 
-        if USE_PLAYWRIGHT:
-            def on_triage_chunk(chunk: str):
-                asyncio.create_task(on_triage_chunk_async(chunk))
-        else:
-            def on_triage_chunk(chunk: str):
-                def schedule(c=chunk):
-                    asyncio.create_task(on_triage_chunk_async(c))
-                loop.call_soon_threadsafe(schedule)
+        def on_triage_chunk(chunk: str):
+            asyncio.create_task(on_triage_chunk_async(chunk))
 
         try:
-            print("[DEBUG] Starting triage with Claude...")
-            triage_timeout = 120000 if USE_PLAYWRIGHT else 180
             triage_result = await run_triage_fn(
                 claude_client,
                 prompt,
                 responses,
                 mode=mode,
                 on_chunk=on_triage_chunk,
-                timeout=triage_timeout,
+                timeout=120000,
             )
-            print(f"[DEBUG] Triage complete, result length: {len(triage_result) if triage_result else 0}")
             await handler.send_complete("synthesis", triage_result)
         except Exception as e:
-            import traceback
-            print(f"[DEBUG] Triage error: {traceback.format_exc()}")
             await handler.send_error("synthesis", f"Triage failed: {str(e)[:200]}")
 
         await handler.send_status("Debate complete!")
@@ -299,10 +256,7 @@ async def run_debate_session(
         # Cleanup
         if orchestrator:
             try:
-                if USE_PLAYWRIGHT:
-                    await orchestrator.stop()
-                else:
-                    await orchestrator.__aexit__(None, None, None)
+                await orchestrator.stop()
             except Exception:
                 pass
 
@@ -314,10 +268,7 @@ async def check_auth_status(handler: WebSocketHandler):
     orchestrator = None
     try:
         orchestrator = DebateOrchestrator(headless=True)
-        if USE_PLAYWRIGHT:
-            await orchestrator.start()
-        else:
-            await orchestrator.__aenter__()
+        await orchestrator.start()
 
         auth_status = await orchestrator.check_auth()
 
@@ -337,10 +288,7 @@ async def check_auth_status(handler: WebSocketHandler):
     finally:
         if orchestrator:
             try:
-                if USE_PLAYWRIGHT:
-                    await orchestrator.stop()
-                else:
-                    await orchestrator.__aexit__(None, None, None)
+                await orchestrator.stop()
             except Exception:
                 pass
 

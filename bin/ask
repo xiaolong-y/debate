@@ -1,0 +1,44 @@
+#!/usr/bin/env python3
+"""
+Minimal LLM opener - absolute maximum performance.
+No external dependencies beyond Python stdlib.
+
+Usage:
+    ask "What is the meaning of life?"
+    ask  # Just opens all 3 windows
+"""
+
+import subprocess
+import sys
+import os
+
+URLS = [
+    "https://claude.ai/new",
+    "https://chatgpt.com/",
+    "https://gemini.google.com/app",
+]
+
+
+def main():
+    prompt = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else None
+
+    # Copy to clipboard (non-blocking)
+    if prompt:
+        try:
+            p = subprocess.Popen(["pbcopy"], stdin=subprocess.PIPE)
+            p.communicate(prompt.encode())
+            print(f"📋 Copied: {prompt[:50]}{'...' if len(prompt) > 50 else ''}")
+        except Exception:
+            pass
+
+    # Open all URLs in parallel
+    print("🚀 Opening Claude, ChatGPT, Gemini...")
+    for url in URLS:
+        subprocess.Popen(["open", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    if prompt:
+        print("💡 Press ⌘V to paste in each window")
+
+
+if __name__ == "__main__":
+    main()

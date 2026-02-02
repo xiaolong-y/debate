@@ -1,0 +1,7 @@
+#!/bin/bash
+# q - Quick LLM opener with minimal output
+# Usage: q "prompt"
+
+[ -n "$1" ] && printf '%s' "$*" | pbcopy &
+open -g "https://claude.ai/new" "https://chatgpt.com/" "https://gemini.google.com/app" &
+echo "🚀"

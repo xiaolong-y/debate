@@ -1,0 +1,34 @@
+#!/bin/bash
+# 3llm - Open Claude, ChatGPT, and Gemini in parallel
+# Inspired by Alfred's "Launch URL in 3 Browsers" workflow
+#
+# Usage:
+#   3llm                    # Just open all 3
+#   3llm "your prompt"      # Open all 3 with prompt in clipboard
+#
+# Performance: <100ms
+
+CLAUDE="https://claude.ai/new"
+CHATGPT="https://chatgpt.com/"
+GEMINI="https://gemini.google.com/app"
+
+# Copy prompt to clipboard if provided
+if [ -n "$1" ]; then
+    echo -n "$*" | pbcopy
+    echo "📋 Prompt copied to clipboard"
+fi
+
+# Open all 3 URLs in parallel (& runs in background)
+echo "🚀 Opening LLM windows..."
+open "$CLAUDE" &
+open "$CHATGPT" &
+open "$GEMINI" &
+
+echo "   ✓ Claude"
+echo "   ✓ ChatGPT"
+echo "   ✓ Gemini"
+
+if [ -n "$1" ]; then
+    echo ""
+    echo "💡 Press ⌘V in each chat window to paste"
+fi

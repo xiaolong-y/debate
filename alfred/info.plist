@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>bundleid</key>
+	<string>com.debate.3llm</string>
+	<key>category</key>
+	<string>Productivity</string>
+	<key>connections</key>
+	<dict>
+		<key>5E5C3B3B-7D6C-4A1A-9E3F-8F2D1A0B9C8E</key>
+		<array>
+			<dict>
+				<key>destinationuid</key>
+				<string>A1B2C3D4-5E6F-7A8B-9C0D-1E2F3A4B5C6D</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoaliasuid</key>
+				<string></string>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>B2C3D4E5-6F7A-8B9C-0D1E-2F3A4B5C6D7E</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoaliasuid</key>
+				<string></string>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>C3D4E5F6-7A8B-9C0D-1E2F-3A4B5C6D7E8F</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoaliasuid</key>
+				<string></string>
+			</dict>
+		</array>
+	</dict>
+	<key>createdby</key>
+	<string>Debate</string>
+	<key>description</key>
+	<string>Open Claude, ChatGPT, and Gemini with the same prompt</string>
+	<key>disabled</key>
+	<false/>
+	<key>name</key>
+	<string>3 LLMs</string>
+	<key>objects</key>
+	<array>
+		<!-- Keyword Input -->
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>argumenttype</key>
+				<integer>1</integer>
+				<key>keyword</key>
+				<string>3llm</string>
+				<key>subtext</key>
+				<string>Open Claude, ChatGPT, and Gemini with prompt</string>
+				<key>text</key>
+				<string>Ask 3 LLMs</string>
+				<key>withspace</key>
+				<true/>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.input.keyword</string>
+			<key>uid</key>
+			<string>5E5C3B3B-7D6C-4A1A-9E3F-8F2D1A0B9C8E</string>
+			<key>version</key>
+			<integer>1</integer>
+		</dict>
+		<!-- Open Claude URL -->
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>browser</key>
+				<string></string>
+				<key>skipqueryencode</key>
+				<false/>
+				<key>spaces</key>
+				<string></string>
+				<key>url</key>
+				<string>https://claude.ai/new</string>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.action.openurl</string>
+			<key>uid</key>
+			<string>A1B2C3D4-5E6F-7A8B-9C0D-1E2F3A4B5C6D</string>
+			<key>version</key>
+			<integer>1</integer>
+		</dict>
+		<!-- Open ChatGPT URL -->
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>browser</key>
+				<string></string>
+				<key>skipqueryencode</key>
+				<false/>
+				<key>spaces</key>
+				<string></string>
+				<key>url</key>
+				<string>https://chatgpt.com/</string>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.action.openurl</string>
+			<key>uid</key>
+			<string>B2C3D4E5-6F7A-8B9C-0D1E-2F3A4B5C6D7E</string>
+			<key>version</key>
+			<integer>1</integer>
+		</dict>
+		<!-- Open Gemini URL -->
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>browser</key>
+				<string></string>
+				<key>skipqueryencode</key>
+				<false/>
+				<key>spaces</key>
+				<string></string>
+				<key>url</key>
+				<string>https://gemini.google.com/app</string>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.action.openurl</string>
+			<key>uid</key>
+			<string>C3D4E5F6-7A8B-9C0D-1E2F-3A4B5C6D7E8F</string>
+			<key>version</key>
+			<integer>1</integer>
+		</dict>
+		<!-- Copy to Clipboard -->
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>clipboardtext</key>
+				<string>{query}</string>
+				<key>transient</key>
+				<false/>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.output.clipboard</string>
+			<key>uid</key>
+			<string>D4E5F6A7-8B9C-0D1E-2F3A-4B5C6D7E8F9A</string>
+			<key>version</key>
+			<integer>1</integer>
+		</dict>
+	</array>
+	<key>readme</key>
+	<string>## 3 LLMs Workflow
+
+Opens Claude, ChatGPT, and Gemini simultaneously with your prompt copied to clipboard.
+
+### Usage
+
+1. Type `3llm` followed by your prompt
+2. All 3 LLM chat windows open in your default browser
+3. Your prompt is copied to clipboard
+4. Press ⌘V in each chat window to paste
+
+### Example
+
+`3llm What is the meaning of life?`
+
+### Customization
+
+Edit the keyword in the workflow configuration to change the trigger from `3llm` to something else.
+	</string>
+	<key>uidata</key>
+	<dict>
+		<key>5E5C3B3B-7D6C-4A1A-9E3F-8F2D1A0B9C8E</key>
+		<dict>
+			<key>xpos</key>
+			<integer>100</integer>
+			<key>ypos</key>
+			<integer>200</integer>
+		</dict>
+		<key>A1B2C3D4-5E6F-7A8B-9C0D-1E2F3A4B5C6D</key>
+		<dict>
+			<key>xpos</key>
+			<integer>350</integer>
+			<key>ypos</key>
+			<integer>100</integer>
+		</dict>
+		<key>B2C3D4E5-6F7A-8B9C-0D1E-2F3A4B5C6D7E</key>
+		<dict>
+			<key>xpos</key>
+			<integer>350</integer>
+			<key>ypos</key>
+			<integer>200</integer>
+		</dict>
+		<key>C3D4E5F6-7A8B-9C0D-1E2F-3A4B5C6D7E8F</key>
+		<dict>
+			<key>xpos</key>
+			<integer>350</integer>
+			<key>ypos</key>
+			<integer>300</integer>
+		</dict>
+	</dict>
+	<key>version</key>
+	<string>1.0.0</string>
+	<key>webaddress</key>
+	<string>https://github.com/xiaolong-y/debate</string>
+</dict>
+</plist>

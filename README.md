@@ -1,8 +1,8 @@
 # LLM Debate
 
-Query Claude, ChatGPT, and Gemini **in parallel** using your existing subscriptions, then synthesize their responses into a unified analysis.
+Query **Claude, ChatGPT, and Gemini** simultaneously using your existing web subscriptions.
 
-No API keys needed — uses browser automation to leverage your web subscriptions.
+No API keys needed — uses browser automation or direct URL opening.
 
 <p align="center">
   <img src="https://img.shields.io/badge/Claude-Pro-orange" alt="Claude">
@@ -12,141 +12,146 @@ No API keys needed — uses browser automation to leverage your web subscription
 
 ---
 
-## How It Works
+## Two Modes
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  debate run "Is Rust better than Go for CLI tools?"        │
-└───────────────────────────┬─────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Patchright (Undetected Playwright)             │
-│                                                             │
-│         ┌──────────┬──────────┬──────────┐                  │
-│         ▼          ▼          ▼          │                  │
-│      Claude    ChatGPT    Gemini         │                  │
-│     (claude.ai) (chatgpt.com) (gemini.google.com)           │
-│         │          │          │                             │
-│         └──────────┴──────────┘                             │
-│                    │                                        │
-│                    ▼                                        │
-│            Unified Analysis                                 │
-│         (Claude synthesizes all responses)                  │
-└─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│              4-Pane Web UI (localhost:8765)                 │
-│  ┌─────────────────┬─────────────────┐                      │
-│  │    Claude       │    ChatGPT      │                      │
-│  │  (streaming)    │   (streaming)   │                      │
-│  ├─────────────────┼─────────────────┤                      │
-│  │    Gemini       │   Synthesis     │                      │
-│  │  (streaming)    │   (streaming)   │                      │
-│  └─────────────────┴─────────────────┘                      │
-└─────────────────────────────────────────────────────────────┘
-```
+| Mode | Speed | Features |
+|------|-------|----------|
+| **Turbo** ⚡ | **3-50ms** | Opens all 3 windows instantly, prompt in clipboard |
+| **Full** 🔬 | ~10s | Playwright automation, response streaming, synthesis |
 
 ---
 
-## Features
-
-- **Parallel Queries** — Ask all three LLMs simultaneously
-- **Streaming Responses** — Watch responses appear in real-time
-- **Unified Analysis** — Claude synthesizes consensus and disagreements
-- **Rich Markdown** — Code highlighting, math rendering, tables
-- **Session Persistence** — Login once, sessions saved for future use
-- **No API Keys** — Uses your existing web subscriptions
-
----
-
-## Installation
-
-### Prerequisites
-
-- Python 3.10+
-- Active subscriptions to Claude Pro, ChatGPT Plus, and/or Gemini Advanced
-
-### Setup
+## Quick Start (Turbo Mode)
 
 ```bash
-# Clone the repository
+# Install
 git clone https://github.com/xiaolong-y/debate.git
 cd debate
+export PATH="$PWD/bin:$PATH"
 
-# Create virtual environment and install dependencies
-python -m venv .venv
-source .venv/bin/activate
+# Use it (fastest)
+llm "What is the meaning of life?"
+```
+
+That's it! All 3 chat windows open in **<50ms**, prompt is in your clipboard. Press ⌘V in each.
+
+### Alternative commands
+
+```bash
+# Shell script version
+3llm "Your question here"
+
+# Python CLI
+debate "Your question here"
+debate go "Your question here"
+```
+
+---
+
+## How Turbo Mode Works
+
+Inspired by Alfred's [Launch URL in 3 Browsers](https://github.com/alfredapp/launch-url-in-3-browsers-workflow) workflow:
+
+```
+┌─────────────────────────────────────────┐
+│  ask "What is AI?"                      │
+└─────────────────────────────────────────┘
+              │
+              ▼ (parallel, <100ms total)
+    ┌─────────┼─────────┐
+    ▼         ▼         ▼
+ Claude    ChatGPT   Gemini
+(new tab) (new tab) (new tab)
+              │
+              ▼
+     📋 Prompt in clipboard
+         (⌘V to paste)
+```
+
+**Performance breakdown:**
+- `pbcopy`: ~5ms (background)
+- `open -g` (3 URLs parallel): ~10ms
+- Shell overhead: ~5-20ms
+- Total: **<50ms** (5-13ms after browser warmup)
+
+---
+
+## Full Mode (with Synthesis)
+
+For automated response collection and AI-powered synthesis:
+
+```bash
+# One-time setup
 pip install -r requirements.txt
-
-# Install Patchright browser
-pip install patchright
 patchright install chromium
+debate auth  # Log in to each service
 
-# Add to PATH (add this to your ~/.zshrc or ~/.bashrc)
+# Run with synthesis
+debate run "Compare React vs Vue vs Svelte"
+```
+
+Opens a web UI at `localhost:8765` with 4 panes:
+- Claude response (streaming)
+- ChatGPT response (streaming)
+- Gemini response (streaming)
+- Unified Analysis (synthesis + arbitration)
+
+---
+
+## Commands Reference
+
+| Command | Speed | Description |
+|---------|-------|-------------|
+| `llm "prompt"` | **3ms** | ⚡ Ultra-fast - background, silent |
+| `q "prompt"` | ~50ms | ⚡ Fast with emoji |
+| `3llm "prompt"` | ~100ms | ⚡ Verbose with emojis |
+| `ask "prompt"` | ~250ms | Python version |
+| `debate "prompt"` | ~100ms | Full CLI, turbo default |
+| `debate run "prompt"` | ~10s | 🔬 Full mode + synthesis |
+| `debate auth` | - | 🔐 Set up login sessions |
+| `debate check` | - | ✅ Check auth status |
+| `debate kill` | - | 🛑 Stop server |
+
+---
+
+## Alfred Workflow
+
+An Alfred workflow is included in `alfred/` for keyboard shortcut access:
+
+1. Open `alfred/info.plist` in Alfred
+2. Type `3llm your question` to trigger
+3. All 3 windows open with prompt in clipboard
+
+---
+
+## Installation Options
+
+### Minimal (Turbo Mode Only)
+
+```bash
+git clone https://github.com/xiaolong-y/debate.git
 export PATH="$HOME/Documents/GitHub/debate/bin:$PATH"
 ```
 
-### Authenticate
+No dependencies! Uses only macOS built-in commands.
 
-Run the auth command to log in to each LLM (one-time setup):
-
-```bash
-debate auth
-```
-
-This opens browser windows for Claude, ChatGPT, and Gemini. Log in manually to each, then press Enter when done. Sessions are saved to `~/.debate/browser-data/`.
-
----
-
-## Usage
-
-### Commands
-
-| Command | Description |
-|---------|-------------|
-| `debate run "prompt"` | Run a debate with the given prompt |
-| `debate auth` | Authenticate all LLM accounts |
-| `debate check` | Check authentication status |
-| `debate kill` | Kill any running debate server |
-| `debate server` | Start server only (no browser) |
-
-### Examples
+### Full Installation
 
 ```bash
-# Simple question
-debate run "What is the best programming language for beginners?"
-
-# Complex analysis
-debate run "Compare React, Vue, and Svelte for a new startup"
-
-# Research question
-debate run "What are the implications of quantum computing for cryptography?"
+cd debate
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+patchright install chromium
 ```
 
 ---
 
-## Web UI
+## Requirements
 
-The debate opens a browser at `http://localhost:8765` with a 4-pane interface:
-
-| Pane | Content |
-|------|---------|
-| Top Left | Claude's response |
-| Top Right | ChatGPT's response |
-| Bottom Left | Gemini's response |
-| Bottom Right | Unified Analysis (synthesis + arbitration) |
-
-### Features
-
-- **Live Streaming** — Responses appear as they're generated
-- **Markdown Rendering** — Headers, lists, code blocks, tables
-- **Syntax Highlighting** — Code blocks with language detection
-- **Math Support** — LaTeX rendering via KaTeX
-- **Thinking Blocks** — Collapsible reasoning sections
-- **Copy Buttons** — Copy raw markdown from any pane
-- **Dark Mode** — Automatic based on system preference
+- **macOS** (uses `open` and `pbcopy`)
+- Active subscriptions to Claude Pro, ChatGPT Plus, and/or Gemini Advanced
+- Python 3.10+ (for full mode only)
 
 ---
 
@@ -155,50 +160,49 @@ The debate opens a browser at `http://localhost:8765` with a 4-pane interface:
 ```
 debate/
 ├── bin/
-│   └── debate           # CLI entry point
-├── static/
-│   └── index.html       # 4-pane web UI
-├── debate.py            # CLI commands
-├── server.py            # FastAPI + WebSocket server
-├── playwright_client.py # Browser automation (Patchright)
-├── triage.py            # Synthesis/arbitration logic
-├── llm_selectors.py     # DOM selectors for each LLM
-└── WORKING_STATE.md     # Debugging documentation
+│   ├── llm          # ⚡ Ultra-fast (<50ms)
+│   ├── q            # ⚡ Fast with output
+│   ├── 3llm         # ⚡ Shell script with emojis
+│   ├── ask          # Python version
+│   └── debate       # Full CLI
+├── alfred/
+│   └── info.plist   # Alfred workflow
+├── debate.py        # Main CLI with both modes
+├── turbo.py         # Feature-rich Python module
+├── quick.py         # Simple Python opener
+├── server.py        # FastAPI server (full mode)
+├── playwright_client.py  # Browser automation
+├── llm_selectors.py      # DOM selectors
+└── static/
+    └── index.html   # 4-pane web UI
 ```
-
-### Key Technologies
-
-| Component | Technology |
-|-----------|------------|
-| Browser Automation | [Patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright-python) (undetected Playwright) |
-| Web Server | FastAPI + WebSocket |
-| Frontend | Vanilla JS + marked.js + highlight.js + KaTeX |
-| CLI | Typer + Rich |
 
 ---
 
-## Why Patchright?
+## Why Two Modes?
 
-Regular Playwright is detected by ChatGPT's bot detection:
+**Turbo Mode** is for quick questions where you want to manually compare responses. It's instant and reliable.
 
-- OpenAI uses CDP (Chrome DevTools Protocol) fingerprinting
-- Sessions get invalidated server-side after automation is detected
-- Standard stealth plugins don't bypass this
+**Full Mode** is for deeper analysis where you want:
+- Automated response collection
+- Side-by-side streaming
+- AI-synthesized consensus/disagreements
+- Markdown rendering with code highlighting
 
-[Patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright-python) patches these detection vectors at a lower level, making automation undetectable.
+Choose based on your needs!
 
 ---
 
 ## Troubleshooting
 
-### ChatGPT keeps redirecting to login
+### Turbo mode opens wrong browser
+
+Set your default browser in System Preferences → Desktop & Dock → Default web browser.
+
+### Full mode: ChatGPT keeps logging out
 
 ```bash
-# Clear the corrupted profile
 rm -rf ~/.debate/browser-data/pw-chatgpt/
-rm ~/.debate/browser-data/cookies/chatgpt.json
-
-# Re-authenticate
 debate auth
 ```
 
@@ -207,50 +211,6 @@ debate auth
 ```bash
 debate kill
 ```
-
-### Browser hangs on startup
-
-```bash
-# Clear stale lock files
-rm -f ~/.debate/browser-data/pw-*/SingletonLock
-```
-
-### Check auth status
-
-```bash
-debate check
-```
-
----
-
-## Browser Data
-
-Sessions are stored in `~/.debate/browser-data/`:
-
-```
-~/.debate/browser-data/
-├── pw-claude/      # Claude browser profile
-├── pw-chatgpt/     # ChatGPT browser profile
-├── pw-gemini/      # Gemini browser profile
-└── cookies/        # Saved cookies
-```
-
-To reset everything:
-
-```bash
-rm -rf ~/.debate/browser-data/
-debate auth
-```
-
----
-
-## Contributing
-
-Contributions welcome! Key areas:
-
-- **Selector Updates** — LLM sites change their DOM frequently. Update `llm_selectors.py` if something breaks.
-- **New LLMs** — Add support for other chat interfaces (Perplexity, Mistral, etc.)
-- **UI Improvements** — The web UI is self-contained in `static/index.html`
 
 ---
 
@@ -262,5 +222,6 @@ MIT
 
 ## Acknowledgments
 
+- [Alfred's Launch URL in 3 Browsers](https://github.com/alfredapp/launch-url-in-3-browsers-workflow) — Inspiration
 - [Patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright-python) — Undetected Playwright
-- [Karpathy's LLM Council](https://github.com/karpathy/llm-council) — Inspiration for multi-LLM synthesis
+- [Karpathy's LLM Council](https://github.com/karpathy/llm-council) — Multi-LLM synthesis idea
