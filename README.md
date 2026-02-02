@@ -159,22 +159,24 @@ patchright install chromium
 
 ```
 debate/
-├── bin/
-│   ├── llm          # ⚡ Ultra-fast (<50ms)
-│   ├── q            # ⚡ Fast with output
-│   ├── 3llm         # ⚡ Shell script with emojis
-│   ├── ask          # Python version
-│   └── debate       # Full CLI
-├── alfred/
-│   └── info.plist   # Alfred workflow
-├── debate.py        # Main CLI with both modes
-├── turbo.py         # Feature-rich Python module
-├── quick.py         # Simple Python opener
-├── server.py        # FastAPI server (full mode)
-├── playwright_client.py  # Browser automation
-├── llm_selectors.py      # DOM selectors
-└── static/
-    └── index.html   # 4-pane web UI
+├── bin/                    # CLI entry points
+│   ├── llm                 # Ultra-fast (3ms)
+│   ├── q                   # Quick with emoji
+│   ├── 3llm                # Verbose
+│   ├── ask                 # Python minimal
+│   └── debate              # Main CLI wrapper
+├── config.py               # Central configuration
+├── utils.py                # Shared utilities
+├── debate.py               # Main Typer CLI
+├── turbo.py                # Turbo mode implementation
+├── playwright_client.py    # Browser automation
+├── llm_selectors.py        # DOM selectors
+├── server.py               # FastAPI server
+├── triage.py               # Response synthesis
+├── static/
+│   └── index.html          # Web UI
+└── alfred/
+    └── info.plist          # Alfred workflow
 ```
 
 ---
