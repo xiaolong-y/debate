@@ -9,6 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional, List
 
+from config import LLMS
+
 
 @dataclass
 class LLMSelectors:
@@ -28,8 +30,8 @@ class LLMSelectors:
 
 SELECTORS = {
     "claude": LLMSelectors(
-        url="https://claude.ai",
-        new_chat_url="https://claude.ai/new",
+        url=LLMS["claude"]["url"],
+        new_chat_url=LLMS["claude"]["new_chat_url"],
         # Primary: ProseMirror contenteditable editor
         input_selector="div.ProseMirror[contenteditable='true']",
         submit_selector="button[aria-label='Send Message']",
@@ -57,8 +59,8 @@ SELECTORS = {
         ],
     ),
     "chatgpt": LLMSelectors(
-        url="https://chatgpt.com",
-        new_chat_url="https://chatgpt.com/",
+        url=LLMS["chatgpt"]["url"],
+        new_chat_url=LLMS["chatgpt"]["new_chat_url"],
         # ChatGPT uses contenteditable div now, not textarea
         input_selector="div#prompt-textarea[contenteditable='true']",
         submit_selector="button[data-testid='send-button']",
@@ -92,8 +94,8 @@ SELECTORS = {
         ],
     ),
     "gemini": LLMSelectors(
-        url="https://gemini.google.com",
-        new_chat_url="https://gemini.google.com/app",
+        url=LLMS["gemini"]["url"],
+        new_chat_url=LLMS["gemini"]["new_chat_url"],
         # Gemini uses custom web components - selectors updated Jan 2025
         input_selector="rich-textarea div[contenteditable='true']",
         submit_selector="button.send-button",
